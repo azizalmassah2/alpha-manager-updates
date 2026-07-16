@@ -3,7 +3,7 @@
   "updateType": "mandatory",
   "mandatory": true,
   "minimumSupportedVersion": "1.0.0",
-  "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v1.1.0/AlphaManager_Setup.exe",
+  "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v1.0.0/AlphaManagerSetup.zip",
   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "fileSize": 12582912,
   "releaseDate": "2026-07-16",
