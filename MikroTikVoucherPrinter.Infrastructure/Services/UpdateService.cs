@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,7 +27,7 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services;
 public class UpdateService : IUpdateService
 {
     // ── رابط ملف التحديث الخام من GitHub ────────────────────────────────
-    private const string UpdateManifestUrl =
+    public string UpdateManifestUrl { get; set; } =
         "https://raw.githubusercontent.com/azizalmassah2/alpha-manager-updates/main/update.json";
     // ────────────────────────────────────────────────────────────────────
 
@@ -75,8 +76,7 @@ public class UpdateService : IUpdateService
             }
 
             // ── 4. تحديد إصدار العميل الحالي ─────────────────────────
-            // GetEntryAssembly = EXE الرئيسي للبرنامج وليس مكتبة Infrastructure
-            var current = Assembly.GetEntryAssembly()?.GetName().Version
+            var current = CurrentVersionOverride ?? Assembly.GetEntryAssembly()?.GetName().Version
                           ?? new Version(1, 0, 0);
 
             // ── 5. فحص minimumSupportedVersion ────────────────────────
@@ -124,6 +124,9 @@ public class UpdateService : IUpdateService
         }
     }
 
+    public bool ExitProcessOnComplete { get; set; } = true;
+    public Version? CurrentVersionOverride { get; set; } = null;
+
     /// <inheritdoc/>
     public async Task DownloadAndInstallAsync(
         UpdateInfo update,
@@ -133,54 +136,84 @@ public class UpdateService : IUpdateService
         var fileName = $"AlphaManager_Update_{update.Version}.exe";
         var tempPath = Path.Combine(Path.GetTempPath(), fileName);
 
-        _logger.LogInformation("⬇️ [Update] بدء تنزيل: {Url} → {Path}",
-            update.DownloadUrl, tempPath);
-
-        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-        http.DefaultRequestHeaders.Add("User-Agent", "AlphaManager-Updater/2.0");
-
-        using var response = await http.GetAsync(
-            update.DownloadUrl,
-            HttpCompletionOption.ResponseHeadersRead,
-            ct);
-
-        response.EnsureSuccessStatusCode();
-
-        var totalBytes = response.Content.Headers.ContentLength ?? -1L;
-
-        // استخدام using blocks لضمان إغلاق وتحرير الملف فوراً قبل تشغيل العملية
-        using (var stream = await response.Content.ReadAsStreamAsync(ct))
-        using (var file = File.Create(tempPath))
+        try
         {
-            var buffer     = new byte[8192];
-            long downloaded = 0;
-            int  read;
+            _logger.LogInformation("⬇️ [Update] بدء تنزيل: {Url} → {Path}",
+                update.DownloadUrl, tempPath);
 
-            while ((read = await stream.ReadAsync(buffer, ct)) > 0)
+            using (var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) })
             {
-                await file.WriteAsync(buffer.AsMemory(0, read), ct);
-                downloaded += read;
+                http.DefaultRequestHeaders.Add("User-Agent", "AlphaManager-Updater/2.0");
 
-                if (totalBytes > 0)
-                    progress.Report((int)(downloaded * 100 / totalBytes));
+                using (var response = await http.GetAsync(
+                    update.DownloadUrl,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    ct))
+                {
+                    response.EnsureSuccessStatusCode();
+
+                    var totalBytes = response.Content.Headers.ContentLength ?? -1L;
+
+                    // استخدام using blocks لضمان إغلاق وتحرير الملف فوراً قبل تشغيل العملية
+                    using (var stream = await response.Content.ReadAsStreamAsync(ct))
+                    using (var file = File.Create(tempPath))
+                    {
+                        var buffer     = new byte[8192];
+                        long downloaded = 0;
+                        int  read;
+
+                        while ((read = await stream.ReadAsync(buffer, ct)) > 0)
+                        {
+                            await file.WriteAsync(buffer.AsMemory(0, read), ct);
+                            downloaded += read;
+
+                            if (totalBytes > 0)
+                                progress.Report((int)(downloaded * 100 / totalBytes));
+                        }
+                    }
+                }
             }
-        } // هنا يتم إغلاق الملف وتحرير قفل الويندوز عنه تماماً
 
-        // التحقق من SHA256 لضمان سلامة التحديث وعدم العبث به
-        if (!string.IsNullOrEmpty(update.Sha256))
+            // التحقق من SHA256 لضمان سلامة التحديث وعدم العبث به
+            if (!string.IsNullOrEmpty(update.Sha256))
+            {
+                _logger.LogInformation("🛡️ [Update] جاري التحقق من بصمة SHA-256 لملف التحديث...");
+                VerifyHash(tempPath, update.Sha256);
+            }
+        }
+        catch (Exception ex)
         {
-            _logger.LogInformation("🛡️ [Update] جاري التحقق من بصمة SHA-256 لملف التحديث...");
-            VerifyHash(tempPath, update.Sha256);
+            _logger.LogError(ex, "❌ [Update] فشل تنزيل أو التحقق من التحديث");
+            try
+            {
+                if (File.Exists(tempPath)) File.Delete(tempPath);
+            }
+            catch { }
+            throw;
         }
 
         _logger.LogInformation("✅ [Update] اكتمل التنزيل — تشغيل المثبّت: {Path}", tempPath);
 
-        Process.Start(new ProcessStartInfo(tempPath) { UseShellExecute = true });
-        Environment.Exit(0);
+        if (ExitProcessOnComplete)
+        {
+            Process.Start(new ProcessStartInfo(tempPath) { UseShellExecute = true });
+            Environment.Exit(0);
+        }
     }
 
     private void VerifyHash(string filePath, string expectedHash)
     {
+        if (string.IsNullOrWhiteSpace(expectedHash))
+        {
+            throw new System.Security.Cryptography.CryptographicException("SHA-256 hash is empty or null.");
+        }
+
+        var cleanedExpected = expectedHash.Trim().ToLowerInvariant();
+        if (cleanedExpected.Length != 64 || !System.Text.RegularExpressions.Regex.IsMatch(cleanedExpected, "^[a-fA-F0-9]{64}$"))
+        {
+            throw new System.Security.Cryptography.CryptographicException($"Invalid SHA-256 hash format: '{cleanedExpected}'. Expected a 64-character hexadecimal string.");
+        }
+
         try
         {
             using var sha256 = System.Security.Cryptography.SHA256.Create();
@@ -188,8 +221,12 @@ public class UpdateService : IUpdateService
             var hashBytes = sha256.ComputeHash(fileStream);
             var computedHash = Convert.ToHexString(hashBytes).ToLowerInvariant();
             
-            var cleanedExpected = expectedHash.Trim().ToLowerInvariant();
-            if (computedHash != cleanedExpected)
+            var computedBytes = Encoding.UTF8.GetBytes(computedHash);
+            var expectedBytes = Encoding.UTF8.GetBytes(cleanedExpected);
+
+            // مقارنة ثابتة الزمن لتجنب الهجمات القائمة على التوقيت
+            if (computedBytes.Length != expectedBytes.Length ||
+                !System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(computedBytes, expectedBytes))
             {
                 throw new System.Security.Cryptography.CryptographicException(
                     $"SHA-256 verification failed. Expected: {cleanedExpected}, Computed: {computedHash}");

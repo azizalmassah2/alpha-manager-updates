@@ -164,13 +164,13 @@ public class RuntimeMonitor : IRuntimeMonitor
          // 3. إبطال الجلسة وتخفيض الصلاحيات فوراً في الذاكرة
          _securityContextUpdater.Invalidate();
  
-         // 4. محاولة الإغلاق المتدرج للنوافذ والاتصالات والـ Application
+          // 4. محاولة الإغلاق المتدرج للنوافذ والاتصالات والـ Application
          try
          {
              var app = System.Windows.Application.Current;
              if (app != null)
              {
-                 app.Dispatcher.Invoke(() =>
+                 Action shutdownAction = () =>
                  {
                      try
                      {
@@ -187,7 +187,20 @@ public class RuntimeMonitor : IRuntimeMonitor
                          app.Shutdown();
                      }
                      catch { }
-                 });
+                 };
+ 
+                 if (app.Dispatcher.CheckAccess())
+                 {
+                     shutdownAction();
+                 }
+                 else
+                 {
+                     try
+                     {
+                         app.Dispatcher.Invoke(shutdownAction);
+                     }
+                     catch { }
+                 }
              }
          }
          catch

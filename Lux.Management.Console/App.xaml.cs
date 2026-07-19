@@ -68,6 +68,7 @@ using MikroTikVoucherPrinter.Infrastructure.Monitoring;
 using MikroTikVoucherPrinter.Infrastructure.State;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using MikroTikVoucherPrinter.Infrastructure.Services;
 
@@ -516,12 +517,22 @@ public partial class App : Application
 
     private async void OnExit(object sender, ExitEventArgs e)
     {
+        Microsoft.Extensions.Logging.ILogger<App>? logger = null;
+        try
+        {
+            logger = _host.Services.GetService<Microsoft.Extensions.Logging.ILogger<App>>();
+        }
+        catch { }
+
         try
         {
             var autoRefresh = _host.Services.GetService<IAutoRefreshService>();
             autoRefresh?.Stop();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Error stopping AutoRefreshService during application exit.");
+        }
 
         try
         {
@@ -532,13 +543,19 @@ public partial class App : Application
                 runtimeMonitor.Dispose();
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Error stopping RuntimeMonitor during application exit.");
+        }
 
         try
         {
             await _host.StopAsync();
             _host.Dispose();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Error stopping host during application exit.");
+        }
     }
 }
