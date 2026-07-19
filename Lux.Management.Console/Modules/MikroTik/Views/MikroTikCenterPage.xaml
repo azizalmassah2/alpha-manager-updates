@@ -1,0 +1,364 @@
+<UserControl x:Class="Lux.Management.Console.Modules.MikroTik.Views.MikroTikCenterPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:vouchers="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Vouchers.Views"
+             xmlns:profiles="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Profiles.Views"
+             xmlns:agents="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Agents.Views"
+             xmlns:printing="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Printing.Views"
+             xmlns:sales="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Sales.Views"
+             xmlns:routerMgmt="clr-namespace:Lux.Management.Console.Modules.MikroTik.RouterManagement.Views"
+             xmlns:dbexplorer="clr-namespace:Lux.Management.Console.Modules.Settings.Views"
+             xmlns:backups="clr-namespace:Lux.Management.Console.Modules.MikroTik.Backups.Views"
+             xmlns:viewmodels="clr-namespace:Lux.Management.Console.Modules.MikroTik.ViewModels"
+             xmlns:vouchersVm="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Vouchers.ViewModels"
+             xmlns:profilesVm="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Profiles.ViewModels"
+             xmlns:agentsVm="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Agents.ViewModels"
+             xmlns:printingVm="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Printing.ViewModels"
+             xmlns:salesVm="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Sales"
+             xmlns:routerMgmtVm="clr-namespace:Lux.Management.Console.Modules.MikroTik.RouterManagement.ViewModels"
+             xmlns:dbexplorerVm="clr-namespace:Lux.Management.Console.Modules.Settings.ViewModels"
+             xmlns:backupsVm="clr-namespace:Lux.Management.Console.Modules.MikroTik.Backups.ViewModels"
+             mc:Ignorable="d"
+             d:DesignHeight="800" d:DesignWidth="1200"
+             FlowDirection="RightToLeft">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- ══ DataTemplates: ViewModel → View mapping ══ -->
+        <DataTemplate DataType="{x:Type routerMgmtVm:RouterDashboardViewModel}">
+            <routerMgmt:RouterDashboardPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type routerMgmtVm:SystemResourcesViewModel}">
+            <routerMgmt:SystemResourcesPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type routerMgmtVm:InterfacesViewModel}">
+            <routerMgmt:InterfacesPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type routerMgmtVm:IpAddressesViewModel}">
+            <routerMgmt:IpAddressesPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type routerMgmtVm:RoutesViewModel}">
+            <routerMgmt:RoutesPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type routerMgmtVm:DnsViewModel}">
+            <routerMgmt:DnsPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type routerMgmtVm:NtpViewModel}">
+            <routerMgmt:NtpPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type backupsVm:BackupsViewModel}">
+            <backups:BackupsPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type routerMgmtVm:RouterOperationsViewModel}">
+            <routerMgmt:RouterOperationsPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type routerMgmtVm:NocViewModel}">
+            <routerMgmt:NocPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vouchersVm:VoucherManagementViewModel}">
+            <vouchers:VoucherManagementPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type salesVm:SalesViewModel}">
+            <sales:SalesPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type profilesVm:ProfileManagementViewModel}">
+            <profiles:ProfileManagementPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type agentsVm:AgentManagementViewModel}">
+            <agents:AgentManagementPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type printingVm:TemplateManagementViewModel}">
+            <printing:TemplateManagementPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type dbexplorerVm:DbExplorerViewModel}">
+            <dbexplorer:DbExplorerPage/>
+        </DataTemplate>
+
+        <!-- ══ Style: User Manager pill navigation ══ -->
+        <Style x:Key="PillListBoxStyle" TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ItemsPanel">
+                <Setter.Value>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemTemplate">
+                <Setter.Value>
+                    <DataTemplate DataType="{x:Type viewmodels:NavigationNode}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Icon}" FontSize="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="Medium" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Margin" Value="0,0,6,0"/>
+                        <Setter Property="Padding" Value="14,6"/>
+                        <Setter Property="Cursor" Value="Hand"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="Bd"
+                                            Background="Transparent"
+                                            BorderBrush="{DynamicResource PrimaryBrush}"
+                                            BorderThickness="1.5"
+                                            CornerRadius="20"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryBrush}"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryBrush}"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ══ Style: Workspace Selector panel nav items ══ -->
+        <Style x:Key="PanelNavListBoxStyle" TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FlowDirection" Value="LeftToRight"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ItemTemplate">
+                <Setter.Value>
+                    <DataTemplate DataType="{x:Type viewmodels:NavigationNode}">
+                        <Grid Margin="4,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/> <!-- Icon -->
+                                <ColumnDefinition Width="*"/>    <!-- Text stack -->
+                            </Grid.ColumnDefinitions>
+                            
+                            <TextBlock Grid.Column="0" 
+                                       Text="{Binding Icon}" 
+                                       FontSize="16" 
+                                       VerticalAlignment="Center" 
+                                       Margin="0,0,12,0"/>
+                            
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Title}" 
+                                           FontSize="12.5" 
+                                           FontWeight="SemiBold" 
+                                           Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Text="{Binding Description}" 
+                                           FontSize="10" 
+                                           Foreground="{DynamicResource SecondaryTextBrush}" 
+                                           Opacity="0.75" 
+                                           Margin="0,1,0,0" 
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="10,8"/>
+                        <Setter Property="Margin" Value="4,2"/>
+                        <Setter Property="Cursor" Value="Hand"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Grid>
+                                        <!-- Active accent line on the left (RTL start relative to LTR container) -->
+                                        <Border x:Name="AccentBar"
+                                                Width="3" HorizontalAlignment="Left"
+                                                Background="{DynamicResource PrimaryBrush}"
+                                                CornerRadius="2"
+                                                Margin="2,3,0,3"
+                                                Visibility="Collapsed"/>
+                                        <Border x:Name="Bd"
+                                                Background="Transparent"
+                                                CornerRadius="6"
+                                                Padding="{TemplateBinding Padding}"
+                                                Margin="6,0,0,0">
+                                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </Grid>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Bd" Property="Background">
+                                                <Setter.Value>
+                                                    <SolidColorBrush Color="{DynamicResource PrimaryColor}" Opacity="0.08"/>
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Setter TargetName="AccentBar" Property="Visibility" Value="Visible"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ══ Style: Toggle button for nav panel ══ -->
+        <Style x:Key="NavToggleButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryBrush}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ══ DataTemplate: Placeholder/Mock page ══ -->
+        <DataTemplate DataType="{x:Type viewmodels:PlaceholderViewModel}">
+            <Border Background="{DynamicResource RegionBrush}" Padding="24">
+                <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="32" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="500">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="15" ShadowDepth="1" Opacity="0.1" Color="Black"/>
+                    </Border.Effect>
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Icon}" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
+                            <TextBlock Text="أنت الآن في الصفحة: " FontSize="15" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                            <TextBlock Text="{Binding PageName}" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryBrush}"/>
+                        </StackPanel>
+                        <TextBlock Text="(هذه مساحة المحتوى الفعلية المخصصة للجدول أو النماذج)" FontSize="12" Opacity="0.75" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <!-- ══ Root Grid: 3 rows, no sidebar columns ══ -->
+    <Grid Background="{DynamicResource RegionBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>   <!-- Row 0: Breadcrumb bar + toggle button -->
+            <RowDefinition Height="Auto"/>   <!-- Row 1: Context Navigation Pill Strip -->
+            <RowDefinition Height="*"/>      <!-- Row 2: Full-width content area -->
+        </Grid.RowDefinitions>
+
+        <!-- ══ Row 0: Breadcrumb bar + toggle button ══ -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="16,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <!-- RTL Col 0 = physical RIGHT: toggle button -->
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- RTL Col 1 = physical LEFT: breadcrumb text -->
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Toggle button: ☰ الأقسام -->
+                <Button Grid.Column="0"
+                        Command="{Binding ToggleNavPanelCommand}"
+                        Content="☰  الأقسام"
+                        Style="{StaticResource NavToggleButtonStyle}"
+                        Margin="0,0,16,0"/>
+
+                <!-- Breadcrumb text -->
+                <TextBlock Grid.Column="1"
+                           Text="{Binding BreadcrumbText}"
+                           FontSize="13"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- ══ Row 1: Context Navigation Pill Strip ══ -->
+        <Border Grid.Row="1"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="16,8"
+                Visibility="{Binding IsPillStripVisible, Converter={StaticResource BoolToVis}}">
+            <ListBox ItemsSource="{Binding ActiveSectionPills}"
+                     SelectedItem="{Binding SelectedSubNode, Mode=TwoWay}"
+                     Style="{StaticResource PillListBoxStyle}"/>
+        </Border>
+
+        <!-- ══ Row 2: Full-width content ══ -->
+        <ContentControl Grid.Row="2"
+                        Content="{Binding CurrentSubPageViewModel}"/>
+
+        <!-- ══ On-Demand Navigation Panel Overlay (spans all rows, ZIndex above content) ══ -->
+        <Grid Grid.Row="0" Grid.RowSpan="3"
+              Panel.ZIndex="100"
+              Visibility="{Binding IsNavPanelOpen, Converter={StaticResource BoolToVis}}">
+            <Grid.ColumnDefinitions>
+                <!-- RTL Col 0 = physical RIGHT: the nav panel -->
+                <ColumnDefinition Width="240"/>
+                <!-- RTL Col 1 = physical LEFT: scrim backdrop -->
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Scrim: click to close panel -->
+            <Border Grid.Column="1" Background="#28000000">
+                <Border.InputBindings>
+                    <MouseBinding MouseAction="LeftClick"
+                                  Command="{Binding CloseNavPanelCommand}"/>
+                </Border.InputBindings>
+            </Border>
+
+            <!-- Workspace Selector Panel -->
+            <Border Grid.Column="0"
+                    Background="{DynamicResource SidebarBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1,0,1,0"
+                    FlowDirection="LeftToRight"
+                    Padding="0,16">
+                <!-- Displays the 5 main workspace modules with custom icons and descriptions -->
+                <ListBox ItemsSource="{Binding NavigationTree}"
+                         SelectedItem="{Binding SelectedSection, Mode=TwoWay}"
+                         Style="{StaticResource PanelNavListBoxStyle}"/>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

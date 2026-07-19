@@ -1,0 +1,214 @@
+<UserControl x:Class="Lux.Management.Console.Modules.Settings.Views.SettingsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="RightToLeft"
+             FontFamily="Segoe UI">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="32,24">
+        <StackPanel MaxWidth="800">
+
+            <!-- العنوان -->
+            <TextBlock Text="⚙️ الإعدادات العامة"
+                       FontSize="24" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}"
+                       Margin="0,0,0,4"/>
+            <TextBlock Text="تخصيص مظهر البرنامج وإعدادات الطباعة العامة"
+                       FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}"
+                       Margin="0,0,0,28"/>
+
+            <!-- ═══ إعدادات المظهر ═══ -->
+            <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,20">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                        <TextBlock Text="&#xE790;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="20"
+                                   Foreground="{DynamicResource PrimaryBrush}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,10,0"/>
+                        <TextBlock Text="المظهر والثيم"
+                                   FontSize="18" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <TextBlock Text="اختر المظهر المناسب للبرنامج"
+                               FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"
+                               Margin="0,0,0,12"/>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="🌙 الوضع الداكن"
+                                Style="{DynamicResource PrimaryButtonStyle}"
+                                Command="{Binding SwitchToDarkCommand}"
+                                Margin="0,0,12,0"/>
+                        <Button Content="☀️ الوضع الفاتح"
+                                Style="{DynamicResource SecondaryButtonStyle}"
+                                Command="{Binding SwitchToLightCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ إعدادات الاتصال ═══ -->
+            <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,20">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                        <TextBlock Text="&#xE839;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="20"
+                                   Foreground="{DynamicResource PrimaryBrush}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,10,0"/>
+                        <TextBlock Text="الاتصال بالمايكروتك"
+                                   FontSize="18" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- عرض بيانات الاتصال الحالية (للقراءة فقط) -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="عنوان IP الحالي" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                            <TextBlock Text="{Binding CurrentHost}"
+                                       FontSize="15" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="اسم المستخدم" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                            <TextBlock Text="{Binding CurrentUsername}"
+                                       FontSize="15" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- حالة الاتصال -->
+                    <Border Background="{DynamicResource SuccessBackgroundBrush}" CornerRadius="8" Padding="14,10" Margin="0,0,0,16"
+                            Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisConverter}}">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="10" Height="10" Fill="{DynamicResource SuccessBrush}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="متصل بالمايكروتك" Foreground="{DynamicResource SuccessBrush}" FontSize="14" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- إعداد الاتصال التلقائي -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <ToggleButton x:Name="AutoConnectToggle"
+                                      IsChecked="{Binding AutoConnectOnStartup, Mode=TwoWay}"
+                                      Style="{DynamicResource ToggleButtonSwitch}"
+                                      Margin="0,0,12,0"/>
+                        <TextBlock Text="الاتصال التلقائي عند بدء التشغيل"
+                                   FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- زر تغيير الاتصال -->
+                    <Button Content="🔌 تغيير بيانات الاتصال"
+                            Style="{DynamicResource SecondaryButtonStyle}"
+                            Command="{Binding ChangeConnectionCommand}"
+                            HorizontalAlignment="Right"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ إعدادات مراقبة الشبكة (NOC) ═══ -->
+            <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,20">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                        <TextBlock Text="📡"
+                                   FontSize="20"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,10,0"/>
+                        <TextBlock Text="إعدادات مراقبة الشبكة (NOC)"
+                                   FontSize="18" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <TextBlock Text="تخصيص المعاملات الافتراضية للمراقبة الحية وخوادم Ping"
+                               FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"
+                               Margin="0,0,0,16"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="20"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="فترة الفحص الدوري (بالثواني):" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,8"/>
+                            <TextBox Text="{Binding NocMonitoringInterval, UpdateSourceTrigger=PropertyChanged}" 
+                                     Style="{DynamicResource TextBoxExtend}"
+                                     Height="35"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="مهلة استجابة Ping (بالمللي ثانية):" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,8"/>
+                            <TextBox Text="{Binding NocPingTimeout, UpdateSourceTrigger=PropertyChanged}" 
+                                     Style="{DynamicResource TextBoxExtend}"
+                                     Height="35"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ إعدادات مزامنة البيانات (UserManager) ═══ -->
+            <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,20">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                        <TextBlock Text="🔄"
+                                   FontSize="20"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,10,0"/>
+                        <TextBlock Text="إعدادات مزامنة البيانات (User Manager)"
+                                   FontSize="18" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <TextBlock Text="تخصيص فترة التحميل والمزامنة التلقائية لقاعدة بيانات مبيعات ومستخدمين User Manager"
+                               FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"
+                               Margin="0,0,0,16"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="20"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="فترة المزامنة والتحميل التلقائي (بالدقائق):" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,8"/>
+                            <TextBox Text="{Binding UserManagerImportInterval, UpdateSourceTrigger=PropertyChanged}" 
+                                     Style="{DynamicResource TextBoxExtend}"
+                                     Height="35"/>
+                        </StackPanel>
+                        
+                        <Grid Grid.Column="2"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- رسالة الحالة -->
+            <TextBlock Text="{Binding StatusMessage}"
+                       FontSize="14"
+                       Foreground="{DynamicResource SuccessBrush}"
+                       Margin="0,8,0,0"
+                       Visibility="{Binding StatusMessage, Converter={StaticResource BoolToVisConverter}}"/>
+
+            <!-- رسالة الخطأ -->
+            <Border Background="{DynamicResource ErrorBackgroundBrush}" CornerRadius="8" Padding="16" Margin="0,8,0,0"
+                    Visibility="{Binding HasError, Converter={StaticResource BoolToVisConverter}}">
+                <TextBlock Text="{Binding ErrorMessage}"
+                           FontSize="14"
+                           Foreground="{DynamicResource ErrorBrush}"
+                           TextWrapping="Wrap"/>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

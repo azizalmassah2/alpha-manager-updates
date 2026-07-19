@@ -1,0 +1,620 @@
+﻿<UserControl x:Class="Lux.Management.Console.Modules.MikroTik.UserManager.Profiles.Views.ProfileManagementPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:hc="https://handyorg.github.io/handycontrol"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" 
+             d:DesignHeight="800" d:DesignWidth="1200"
+             FlowDirection="RightToLeft"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch"
+             HorizontalContentAlignment="Stretch"
+             VerticalContentAlignment="Stretch">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- ══ Style: Filter Chip ListBox ══ -->
+        <Style x:Key="FilterChipListBoxStyle" TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ItemsPanel">
+                <Setter.Value>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Margin" Value="0,0,6,0"/>
+                        <Setter Property="Padding" Value="10,4"/>
+                        <Setter Property="Cursor" Value="Hand"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="Bd"
+                                            Background="Transparent"
+                                            BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryBrush}"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ══ Style: Status Badge Border ══ -->
+        <Style x:Key="StatusBadgeBorderStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Background" Value="#1A808080"/> <!-- Default neutral -->
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Status}" Value="نشطة">
+                    <Setter Property="Background" Value="#1A107C41"/> <!-- Green 10% -->
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="مخفية">
+                    <Setter Property="Background" Value="#1AC53B2A"/> <!-- Red 10% -->
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ══ Style: Status Badge Text ══ -->
+        <Style x:Key="StatusBadgeTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Status}" Value="نشطة">
+                    <Setter Property="Foreground" Value="#FF107C41"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="مخفية">
+                    <Setter Property="Foreground" Value="#FFC53B2A"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ══ Style: Source Badge Border ══ -->
+        <Style x:Key="SourceBadgeBorderStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Background" Value="#1A808080"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SystemType}" Value="UserManager">
+                    <Setter Property="Background" Value="#1A2B6CB0"/> <!-- Blue 10% -->
+                </DataTrigger>
+                <DataTrigger Binding="{Binding SystemType}" Value="Hotspot">
+                    <Setter Property="Background" Value="#1AFFA500"/> <!-- Orange 10% -->
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ══ Style: Source Badge Text ══ -->
+        <Style x:Key="SourceBadgeTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SystemType}" Value="UserManager">
+                    <Setter Property="Foreground" Value="#FF2B6CB0"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding SystemType}" Value="Hotspot">
+                    <Setter Property="Foreground" Value="#FFD87000"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ══ Style: High-Density DataGrid Column Header ══ -->
+        <Style x:Key="WorkspaceDataGridColumnHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="{DynamicResource RegionBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+
+        <!-- ══ Style: High-Density DataGrid Row ══ -->
+        <Style x:Key="WorkspaceDataGridRowStyle" TargetType="DataGridRow">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="ContextMenu">
+                <Setter.Value>
+                    <ContextMenu Padding="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                        <MenuItem Header="تعديل الباقة" 
+                                  Command="{Binding DataContext.ShowEditDialogCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                  CommandParameter="{Binding}"/>
+                        <MenuItem Header="نسخ الباقة" 
+                                  Command="{Binding DataContext.CopyProfileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                  CommandParameter="{Binding}"/>
+                        <MenuItem Header="حذف الباقة" 
+                                  Command="{Binding DataContext.DeleteProfileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                  CommandParameter="{Binding}"/>
+                    </ContextMenu>
+                </Setter.Value>
+            </Setter>
+            <Style.Resources>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="Transparent"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="{DynamicResource PrimaryColor}"/>
+            </Style.Resources>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background">
+                        <Setter.Value>
+                            <SolidColorBrush Color="{DynamicResource PrimaryColor}" Opacity="0.08"/>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <!-- ══ Master Container: UserManager Workspace Template ══ -->
+    <Grid Background="{DynamicResource RegionBrush}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+        <Grid.RowDefinitions>
+            <!-- Region 1: Command Bar (H: 46px) -->
+            <RowDefinition Height="Auto"/>
+            <!-- Region 2: Workspace Control Strip (Search + Filters + Metrics - H: 38px) -->
+            <RowDefinition Height="Auto"/>
+            <!-- Region 3: Main Data Area (Grid OR Empty State) -->
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ══ Region 1: Workspace Command Bar (Top Actions) ══ -->
+        <Border Grid.Row="0" 
+                Background="{DynamicResource SurfaceBrush}" 
+                BorderBrush="{DynamicResource BorderBrush}" 
+                BorderThickness="0,0,0,1" 
+                Padding="16,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Primary Action Button -->
+                    <Button Content="إضافة باقة جديدة  ➕" 
+                            Command="{Binding ShowAddDialogCommand}" 
+                            Style="{DynamicResource ButtonPrimary}" 
+                            Height="30" Padding="14,0" FontSize="12.5" FontWeight="SemiBold" 
+                            Margin="0,0,8,0"/>
+
+                    <!-- Secondary Action Buttons -->
+                    <Button Content="تصدير البيانات  📤" 
+                            Command="{Binding ExportSelectedCommand}" 
+                            Style="{DynamicResource ButtonDefault}" 
+                            Height="30" Padding="12,0" FontSize="12" 
+                            Margin="0,0,8,0"/>
+                    
+                    <Button Content="حذف المحدد  🗑️" 
+                            Command="{Binding DeleteSelectedCommand}" 
+                            Style="{DynamicResource ButtonDanger}" 
+                            Height="30" Padding="12,0" FontSize="12" 
+                            Margin="0,0,8,0"/>
+                    
+                    <Button Content="تحديث  ↻" 
+                            Command="{Binding RefreshProfilesCommand}" 
+                            Style="{DynamicResource ButtonDefault}" 
+                            Height="30" Padding="12,0" FontSize="12"/>
+                </StackPanel>
+
+                <!-- Source Switcher (Right aligned in LTR) -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Text="المصدر النشط: " FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox ItemsSource="{Binding AvailableSources}"
+                              SelectedItem="{Binding SelectedSource}"
+                              Width="145" Height="30"
+                              FontSize="12"
+                              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ══ Region 2: Workspace Control Strip ══ -->
+        <Border Grid.Row="1" 
+                Background="{DynamicResource SurfaceBrush}" 
+                BorderBrush="{DynamicResource BorderBrush}" 
+                BorderThickness="0,0,0,1" 
+                Padding="16,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200"/> <!-- Unified Search -->
+                    <ColumnDefinition Width="*"/>   <!-- Status Filter Chips -->
+                    <ColumnDefinition Width="Auto"/> <!-- Metrics Strip -->
+                </Grid.ColumnDefinitions>
+
+                <!-- 1. Search Box -->
+                <hc:SearchBar Grid.Column="0" 
+                              hc:InfoElement.Placeholder="بحث في اسم الباقة..."
+                              Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                              Style="{DynamicResource SearchBarPlus}"
+                              Height="26" 
+                              VerticalAlignment="Center"/>
+
+                <!-- 2. Filter Chips -->
+                <ListBox Grid.Column="1" 
+                         SelectedValuePath="Tag"
+                         SelectedValue="{Binding FilterStatus, Mode=TwoWay}"
+                         Style="{StaticResource FilterChipListBoxStyle}"
+                         Margin="16,0"
+                         VerticalAlignment="Center"
+                         FlowDirection="LeftToRight">
+                    <ListBoxItem Content="الكل" Tag="All" Height="26" VerticalContentAlignment="Center"/>
+                    <ListBoxItem Content="النشطة" Tag="Active" Height="26" VerticalContentAlignment="Center"/>
+                    <ListBoxItem Content="المخفية" Tag="Hidden" Height="26" VerticalContentAlignment="Center"/>
+                    <ListBoxItem Content="بدون كروت" Tag="NoVouchers" Height="26" VerticalContentAlignment="Center"/>
+                </ListBox>
+
+                <!-- 3. Compact Metrics Strip -->
+                <StackPanel Grid.Column="2" 
+                            Orientation="Horizontal" 
+                            VerticalAlignment="Center"
+                            FlowDirection="LeftToRight">
+                    <TextBlock Text="إجمالي الباقات: " FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding TotalProfilesCount}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="2,0,10,0"/>
+
+                    <TextBlock Text="نشطة: " FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding ActiveProfilesCount}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}" Margin="2,0,10,0"/>
+
+                    <TextBlock Text="مخفية: " FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding HiddenProfilesCount}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource DangerBrush}" Margin="2,0,10,0"/>
+
+                    <TextBlock Text="متوسط السعر: " FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding AveragePrice, StringFormat={}{0:N0}}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource WarningBrush}" Margin="2,0,10,0"/>
+
+                    <TextBlock Text="إجمالي الكروت: " FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding TotalLinkedVouchersCount, StringFormat={}{0:N0}}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource InfoBrush}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ══ Region 3: Main Data Area ══ -->
+        <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" Margin="16,16,16,16" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <Grid>
+                <!-- 1. The High-Density Workspace Grid -->
+                <DataGrid x:Name="ProfilesDataGrid" 
+                          ItemsSource="{Binding ProfilesView}" 
+                          AutoGenerateColumns="False" 
+                          HeadersVisibility="All" 
+                          SelectionMode="Extended"
+                          SelectionChanged="ProfilesDataGrid_SelectionChanged"
+                          CanUserAddRows="False" 
+                          CanUserDeleteRows="False"
+                          RowHeaderWidth="0"
+                          GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="{DynamicResource BorderBrush}"
+                          BorderThickness="0"
+                          ColumnHeaderStyle="{StaticResource WorkspaceDataGridColumnHeaderStyle}"
+                          RowStyle="{StaticResource WorkspaceDataGridRowStyle}"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.VirtualizationMode="Recycling"
+                          ScrollViewer.CanContentScroll="True">
+                          
+                    <DataGrid.Columns>
+                        <!-- Checkbox Multi-selection Column -->
+                        <DataGridTemplateColumn Width="40">
+                            <DataGridTemplateColumn.HeaderTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding DataContext.IsAllSelected, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}" 
+                                              Click="HeaderCheckBox_Click"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.HeaderTemplate>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Border x:Name="SelectionIndicator" Width="3" HorizontalAlignment="Left" Background="{DynamicResource PrimaryBrush}" CornerRadius="2" Margin="2,2,0,2" Visibility="Collapsed"/>
+                                        <CheckBox IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}, Mode=TwoWay}" 
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                    </Grid>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                                            <Setter TargetName="SelectionIndicator" Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTextColumn Header="اسم الباقة" Binding="{Binding Name}" Width="1.5*">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="Language" Value="en-US"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="الحجم" Binding="{Binding Size}" Width="*">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="Language" Value="en-US"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        
+                        <DataGridTextColumn Header="مدة الصلاحية" Binding="{Binding Validity}" Width="*">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="Language" Value="en-US"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        
+                        <DataGridTextColumn Header="السعر" Binding="{Binding SellingPrice, StringFormat={}{0:N0}}" Width="*">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="Language" Value="en-US"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="عدد الكروت" Binding="{Binding LinkedVouchers, StringFormat={}{0:N0}}" Width="*">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="Language" Value="en-US"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <!-- High-fidelity Fluent Status Badge -->
+                        <DataGridTemplateColumn Header="الحالة" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource StatusBadgeBorderStyle}">
+                                        <TextBlock Text="{Binding Status}" Style="{StaticResource StatusBadgeTextStyle}"/>
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- High-fidelity Source Badge -->
+                        <DataGridTemplateColumn Header="المصدر" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource SourceBadgeBorderStyle}">
+                                        <TextBlock Text="{Binding SystemType}" Style="{StaticResource SourceBadgeTextStyle}"/>
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- 2. Background Refreshing indicator (Stale Data banner) -->
+                <Border VerticalAlignment="Top" HorizontalAlignment="Stretch" Background="#1AFFC53B" BorderBrush="#FFFCF3CF" BorderThickness="0,0,0,1" Padding="12,6" Panel.ZIndex="5">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CurrentState}" Value="Refreshing">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="⚠️" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="البيانات المعروضة قديمة (Stale). جاري جلب أحدث الباقات من الراوتر بالخلفية..." FontSize="11.5" Foreground="#FF9A7D0A" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <hc:LoadingCircle Grid.Column="1" Width="14" Height="14" VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+
+                <!-- 3. Clean Workspace Empty State Overlay -->
+                <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Panel.ZIndex="1">
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CurrentState}" Value="Empty">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="📦" FontSize="48" Opacity="0.4" HorizontalAlignment="Center" Margin="0,0,0,16" Foreground="{DynamicResource ThirdTextBrush}"/>
+                        <TextBlock Text="لا توجد باقات حالياً في مساحة العمل" FontSize="14.5" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                        <TextBlock Text="ابدأ بإضافة أول باقة باقة لربطها بالباقات وبثها للمستخدمين فوراً." FontSize="11.5" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                        <Button Content="إضافة باقة جديدة  ➕" 
+                                Command="{Binding ShowAddDialogCommand}" 
+                                Style="{DynamicResource ButtonPrimary}" 
+                                Width="160" Height="32" FontSize="12.5" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- 4. Loading Overlay -->
+                <Grid Background="{DynamicResource SurfaceBrush}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" Panel.ZIndex="10">
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CurrentState}" Value="Loading">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <hc:LoadingCircle Width="40" Height="40" Margin="0,0,0,16" HorizontalAlignment="Center"/>
+                        <TextBlock Text="جاري تحميل الباقات والأسعار..." FontSize="13" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- 5. Error Overlay -->
+                <Grid Background="{DynamicResource SurfaceBrush}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" Panel.ZIndex="10">
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CurrentState}" Value="Error">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <TextBlock Text="❌" FontSize="48" Margin="0,0,0,16" HorizontalAlignment="Center"/>
+                        <TextBlock Text="فشل الاتصال بالمايكروتيك" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}" Margin="0,0,0,8" HorizontalAlignment="Center"/>
+                        <TextBlock Text="تعذر جلب البيانات بسبب انقطاع الاتصال بالسيرفر وعدم توفر كاش محلي." FontSize="11.5" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,20" HorizontalAlignment="Center"/>
+                        <Button Content="إعادة المحاولة  ↻" Command="{Binding RefreshProfilesCommand}" Style="{DynamicResource ButtonPrimary}" Width="150" Height="32"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- ══ Dialog Overlay ══ -->
+        <Grid Background="#66000000" Visibility="{Binding IsDialogOpen, Converter={StaticResource BoolToVis}}" Panel.ZIndex="100" Grid.RowSpan="3">
+            <Border Background="{DynamicResource RegionBrush}" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" Width="600" Padding="20">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.3" />
+                </Border.Effect>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Dialog Header -->
+                    <TextBlock Grid.Row="0" Text="{Binding DialogTitle}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,0,15"/>
+
+                    <!-- Tab Control -->
+                    <TabControl Grid.Row="1" Style="{DynamicResource TabControlPlus}" Margin="0,0,0,15">
+                        <TabItem Header="المعلومات الأساسية">
+                            <StackPanel Margin="10,15,10,10">
+                                <hc:TextBox hc:InfoElement.Title="اسم الباقة" Text="{Binding EditingProfile.Name, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsNameEnabled}" Margin="0,0,0,10"/>
+                                <hc:TextBox hc:InfoElement.Title="الوصف" Text="{Binding EditingProfile.Description}" Margin="0,0,0,10"/>
+                                <ComboBox hc:InfoElement.Title="الحالة" SelectedValuePath="Content" SelectedValue="{Binding EditingProfile.Status}" Margin="0,0,0,10">
+                                    <ComboBoxItem Content="نشطة" />
+                                    <ComboBoxItem Content="مخفية" />
+                                </ComboBox>
+                            </StackPanel>
+                        </TabItem>
+
+                        <TabItem Header="إعدادات الإنترنت">
+                            <StackPanel Margin="10,15,10,10">
+
+                                <!-- مدة الصلاحية بالأيام -->
+                                <StackPanel Visibility="{Binding IsUserManagerSource, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="مدة الصلاحية (أيام)" FontSize="12" Foreground="{DynamicResource ThirdTextBrush}" Margin="0,0,0,4"/>
+                                    <hc:NumericUpDown Value="{Binding DurationDays, UpdateSourceTrigger=PropertyChanged}"
+                                                      Minimum="0" Maximum="3650" Increment="1"
+                                                      Margin="0,0,0,12"/>
+                                </StackPanel>
+
+                                <!-- حجم البيانات: قيمة + وحدة -->
+                                <StackPanel Visibility="{Binding IsUserManagerSource, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="حجم البيانات (0 = غير محدد)" FontSize="12" Foreground="{DynamicResource ThirdTextBrush}" Margin="0,0,0,4"/>
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="10"/>
+                                            <ColumnDefinition Width="90"/>
+                                        </Grid.ColumnDefinitions>
+                                        <hc:NumericUpDown Grid.Column="0"
+                                                          Value="{Binding TransferValue, UpdateSourceTrigger=PropertyChanged}"
+                                                          Minimum="0" Maximum="99999" Increment="1"/>
+                                        <ComboBox Grid.Column="2"
+                                                  ItemsSource="{Binding TransferUnits}"
+                                                  SelectedItem="{Binding TransferUnit}"
+                                                  Height="32" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
+
+                                <!-- وقت الاستخدام الأقصى -->
+                                <TextBlock Text="وقت الاستخدام الأقصى (ساعات، 0 = غير محدد)" FontSize="12" Foreground="{DynamicResource ThirdTextBrush}" Margin="0,0,0,4"/>
+                                <hc:NumericUpDown Value="{Binding UptimeHours, UpdateSourceTrigger=PropertyChanged}"
+                                                  Minimum="0" Maximum="99999" Increment="1"
+                                                  Margin="0,0,0,12"/>
+
+                                <!-- سرعة الاتصال -->
+                                <TextBlock Text="سرعة الاتصال (مثال: 2M/2M)" FontSize="12" Foreground="{DynamicResource ThirdTextBrush}" Margin="0,0,0,4"/>
+                                <hc:TextBox Text="{Binding RateLimit, UpdateSourceTrigger=PropertyChanged}"
+                                            hc:InfoElement.Placeholder="2M/2M"
+                                            Margin="0,0,0,12"/>
+
+                                <!-- عدد الأجهزة المسموح بها -->
+                                <TextBlock Text="عدد الأجهزة المسموح بها" FontSize="12" Foreground="{DynamicResource ThirdTextBrush}" Margin="0,0,0,4"/>
+                                <ComboBox ItemsSource="{Binding SharedUsersList}"
+                                          SelectedItem="{Binding SharedUsers}"
+                                          Height="32" Margin="0,0,0,4"/>
+
+                            </StackPanel>
+                        </TabItem>
+
+                        <TabItem Header="التسعير" Visibility="{Binding IsUserManagerSource, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Margin="10,15,10,10">
+                                <TextBlock Text="سعر البيع" FontSize="12" Foreground="{DynamicResource ThirdTextBrush}" Margin="0,0,0,4"/>
+                                <hc:NumericUpDown Value="{Binding SellingPrice, UpdateSourceTrigger=PropertyChanged}"
+                                                  Minimum="0" Maximum="9999999" Increment="500"
+                                                  Margin="0,0,0,12"/>
+                                <TextBlock Text="سعر الوكيل (محلي فقط — لا يُرسل للراوتر)" FontSize="12" Foreground="{DynamicResource ThirdTextBrush}" Margin="0,0,0,4"/>
+                                <hc:NumericUpDown Value="{Binding AgentPrice, UpdateSourceTrigger=PropertyChanged}"
+                                                  Minimum="0" Maximum="9999999" Increment="500"
+                                                  Margin="0,0,0,12"/>
+                                <TextBlock Text="العمولة (محلي فقط)" FontSize="12" Foreground="{DynamicResource ThirdTextBrush}" Margin="0,0,0,4"/>
+                                <hc:NumericUpDown Value="{Binding Commission, UpdateSourceTrigger=PropertyChanged}"
+                                                  Minimum="0" Maximum="9999999" Increment="100"
+                                                  Margin="0,0,0,4"/>
+                            </StackPanel>
+                        </TabItem>
+                    </TabControl>
+
+                    <!-- Dialog Actions -->
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,10,0,0">
+                        <Button Content="حفظ" Command="{Binding SaveProfileCommand}" Style="{DynamicResource ButtonPrimary}" Width="100" Margin="0,0,10,0"/>
+                        <Button Content="إلغاء" Command="{Binding CloseDialogCommand}" Style="{DynamicResource ButtonDefault}" Width="100"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

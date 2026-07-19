@@ -1,0 +1,57 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    
+    <!-- ========================================== -->
+    <!-- LIGHT THEME TOKENS                         -->
+    <!-- ========================================== -->
+
+    <!-- Surfaces & Layout -->
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F4F6F8" />
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#F8FAFC" />
+    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#F1F5F9" />
+    <SolidColorBrush x:Key="SurfacePressedBrush" Color="#E2E8F0" />
+    
+    <SolidColorBrush x:Key="SidebarBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="HeaderBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />
+    
+    <!-- Dialogs & Overlays -->
+    <SolidColorBrush x:Key="DialogBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="OverlayBrush" Color="#660F172A" /> <!-- #0F172A at 40% -->
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#0F172A" />
+    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#475569" />
+    <SolidColorBrush x:Key="MutedTextBrush" Color="#94A3B8" />
+
+    <!-- Borders -->
+    <SolidColorBrush x:Key="BorderBrush" Color="#E2E8F0" />
+    <SolidColorBrush x:Key="BorderHoverBrush" Color="#CBD5E1" />
+
+    <!-- Brand / Primary Actions -->
+    <SolidColorBrush x:Key="PrimaryBrush" Color="#2563EB" />
+    <SolidColorBrush x:Key="PrimaryHoverBrush" Color="#1D4ED8" />
+    <SolidColorBrush x:Key="PrimaryPressedBrush" Color="#1E40AF" />
+    
+    <!-- Secondary Actions -->
+    <SolidColorBrush x:Key="SecondaryBrush" Color="#E2E8F0" />
+    <SolidColorBrush x:Key="SecondaryHoverBrush" Color="#CBD5E1" />
+
+    <!-- Status / Semantic (Foreground/Stroke) -->
+    <SolidColorBrush x:Key="SuccessBrush" Color="#16A34A" />
+    <SolidColorBrush x:Key="WarningBrush" Color="#F59E0B" />
+    <SolidColorBrush x:Key="ErrorBrush" Color="#DC2626" />
+    <SolidColorBrush x:Key="InfoBrush" Color="#2563EB" />
+    
+    <!-- Status Backgrounds (e.g. for Badges/Alerts ~10% opacity equivalent) -->
+    <SolidColorBrush x:Key="SuccessBackgroundBrush" Color="#DCFCE7" />
+    <SolidColorBrush x:Key="WarningBackgroundBrush" Color="#FEF3C7" />
+    <SolidColorBrush x:Key="ErrorBackgroundBrush" Color="#FEE2E2" />
+    <SolidColorBrush x:Key="InfoBackgroundBrush" Color="#DBEAFE" />
+
+    <!-- State -->
+    <SolidColorBrush x:Key="DisabledBrush" Color="#94A3B8" />
+    <SolidColorBrush x:Key="DisabledBackgroundBrush" Color="#F1F5F9" />
+    <SolidColorBrush x:Key="SelectionBrush" Color="#EFF6FF" />
+</ResourceDictionary>

@@ -1,0 +1,35 @@
+﻿<UserControl x:Class="Lux.Management.Console.Modules.MikroTik.RouterManagement.Views.RouterOperationsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:hc="https://handyorg.github.io/handycontrol"
+      xmlns:viewmodels="clr-namespace:Lux.Management.Console.Modules.MikroTik.RouterManagement.ViewModels"
+      d:DataContext="{d:DesignInstance Type=viewmodels:RouterOperationsViewModel}"
+      mc:Ignorable="d" 
+      d:DesignHeight="600" d:DesignWidth="800">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="عمليات الروتر (Operations)" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,0,20"/>
+
+        <ScrollViewer Grid.Row="1" IsEnabled="{Binding IsConnected}">
+            <hc:Card Margin="0,0,0,10">
+                <StackPanel Margin="20">
+                    <TextBlock Text="تحذير: هذه العمليات تؤثر مباشرة على الروتر النشط وسيتم قطع الاتصال بالبرنامج." Foreground="{DynamicResource DangerBrush}" FontWeight="Bold" Margin="0,0,0,20"/>
+                    
+                    <Button Command="{Binding RebootCommand}" Style="{StaticResource ButtonDanger}" Content="إعادة التشغيل (Reboot)" Width="200" HorizontalAlignment="Left" Margin="0,0,0,20"/>
+                    
+                    <Button Command="{Binding ShutdownCommand}" Style="{StaticResource ButtonDanger}" Content="إيقاف التشغيل (Shutdown)" Width="200" HorizontalAlignment="Left"/>
+                </StackPanel>
+            </hc:Card>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
+
+
+

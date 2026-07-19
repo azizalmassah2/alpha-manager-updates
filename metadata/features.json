@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "lastUpdated": "2026-07-19T01:57:00Z",
+  "generatedBy": "Alpha Manager Build System",
+  "data": [
+    {
+      "title": "الترخيص المحمول الذاتي للراوترات",
+      "description": "يرتبط ترخيص البرنامج بالراوتر ذاته ويُحفظ عليه في مسار آمن. عند تشغيل البرنامج من أي جهاز كمبيوتر يتصل بالشبكة، يتم التحقق وتفعيل المنظومة تلقائياً دون استيراد وتصدير يدوي للملفات.",
+      "category": "Licensing",
+      "iconName": "key-outline",
+      "isKeyFeature": true,
+      "displayOrder": 1
+    },
+    {
+      "title": "حماية وتأمين القوالب من السرقة",
+      "description": "نظام المعاينة الآمنة المدمجة بالذاكرة (In-Memory Preview) يمنع كتابة أو استخراج ملفات قوالب صفحات الـ Hotspot بصورة مؤقتة مكشوفة، مما يقضي على ثغرة سرقة ونسخ القوالب نهائياً.",
+      "category": "Security",
+      "iconName": "shield-checkmark-outline",
+      "isKeyFeature": true,
+      "displayOrder": 2
+    },
+    {
+      "title": "مزامنة وتعديل إعدادات الـ Hotspot الحية",
+      "description": "يقوم البرنامج بقراءة ملف التكوين (config.js) المخزن مسبقاً بالراوتر تلقائياً عند فتح شاشة التعديل للبدء من آخر إعدادات مرفوعة بدلاً من إعادة كتابة البيانات من الصفر.",
+      "category": "Hotspot Management",
+      "iconName": "sync-outline",
+      "isKeyFeature": true,
+      "displayOrder": 3
+    },
+    {
+      "title": "مصمم كروت وتذاكر تفاعلي (Grid-Based)",
+      "description": "تصميم كروت الطباعة بحرية مطلقة مع إمكانية تحريك العناصر كالنصوص ورمز الـ QR والباركود وتخصيص حجم ونوع الخطوط والأبعاد بدقة المليمتر.",
+      "category": "Voucher Printing",
+      "iconName": "grid-outline",
+      "isKeyFeature": true,
+      "displayOrder": 4
+    },
+    {
+      "title": "دعم كامل للطباعة الحرارية وشبكات A4",
+      "description": "توافق تام مع طابعات الإيصالات (Thermal Printers) ذات العروض المتعددة وتنسيقات الطباعة على ورق A4 لتقسيم الكروت تلقائياً وتوفير الورق.",
+      "category": "Voucher Printing",
+      "iconName": "print-outline",
+      "isKeyFeature": false,
+      "displayOrder": 5
+    },
+    {
+      "title": "إحصائيات وتحليلات حية للشبكة والراوترات",
+      "description": "لوحة تحليل متطورة لمراقبة المعالجات وحالة استهلاك الذاكرة وسرعات التحميل والرفع لجميع كروت الشبكة المتصلة بالمايكروتيك.",
+      "category": "Monitoring",
+      "iconName": "bar-chart-outline",
+      "isKeyFeature": false,
+      "displayOrder": 6
+    }
+  ]
+}

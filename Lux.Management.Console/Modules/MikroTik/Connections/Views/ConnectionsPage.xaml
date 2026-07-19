@@ -1,0 +1,74 @@
+﻿<UserControl x:Class="Lux.Management.Console.Modules.MikroTik.Connections.Views.ConnectionsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:hc="https://handyorg.github.io/handycontrol"
+             xmlns:viewmodels="clr-namespace:Lux.Management.Console.Modules.MikroTik.Connections.ViewModels"
+             FlowDirection="RightToLeft"
+             d:DataContext="{d:DesignInstance Type=viewmodels:ConnectionsViewModel}"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <!-- Converter for Status if needed, but we don't have it right now. Will just show plain text or rely on commands. -->
+    </UserControl.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header and Toolbar -->
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Text="إدارة الاتصالات والروترات" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Command="{Binding LoadRoutersCommand}" Style="{StaticResource ButtonDefault}" Content="تحديث" Margin="0,0,10,0"/>
+                <Button Command="{Binding AddRouterCommand}" Style="{StaticResource ButtonPrimary}" Content="إضافة روتر جديد"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- DataGrid -->
+        <DataGrid Grid.Row="1" ItemsSource="{Binding Routers}" SelectedItem="{Binding SelectedRouter}" 
+                  AutoGenerateColumns="False" CanUserAddRows="False" SelectionMode="Single"
+                  RowHeaderWidth="0" hc:DataGridAttach.ShowRowNumber="True">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="الاسم" Binding="{Binding DisplayName}" Width="150" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Host (IP/Domain)" Binding="{Binding Host}" Width="150" IsReadOnly="True"/>
+                <DataGridTextColumn Header="المنفذ" Binding="{Binding Port}" Width="80" IsReadOnly="True"/>
+                <DataGridTextColumn Header="المستخدم" Binding="{Binding Username}" Width="120" IsReadOnly="True"/>
+                <DataGridTextColumn Header="آخر اتصال" Binding="{Binding LastConnectedUtc, StringFormat={}{0:yyyy-MM-dd HH:mm}}" Width="150" IsReadOnly="True"/>
+                
+                <DataGridTemplateColumn Header="الإجراءات" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Command="{Binding DataContext.ConnectRouterCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                        CommandParameter="{Binding}" 
+                                        Style="{StaticResource ButtonSuccess}" Content="اتصال" Margin="0,0,5,0" Padding="10,0"/>
+                                
+                                <Button Command="{Binding DataContext.TestConnectionCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                        CommandParameter="{Binding}" 
+                                        Style="{StaticResource ButtonDefault}" Content="اختبار" Margin="0,0,5,0" Padding="10,0"/>
+                                
+                                <Button Command="{Binding DataContext.EditRouterCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                        CommandParameter="{Binding}" 
+                                        Style="{StaticResource ButtonPrimary}" Content="تعديل" Margin="0,0,5,0" Padding="10,0"/>
+                                
+                                <Button Command="{Binding DataContext.DeleteRouterCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                        CommandParameter="{Binding}" 
+                                        Style="{StaticResource ButtonDanger}" Content="حذف" Padding="10,0"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

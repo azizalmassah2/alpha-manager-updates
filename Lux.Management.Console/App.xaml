@@ -1,0 +1,113 @@
+<Application x:Class="Lux.Management.Console.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewmodels="clr-namespace:Lux.Management.Console.ViewModels"
+             xmlns:dashboard="clr-namespace:Lux.Management.Console.Modules.MikroTik.Dashboard"
+             xmlns:monitoring="clr-namespace:Lux.Management.Console.Modules.Monitoring"
+             xmlns:operationsviews="clr-namespace:Lux.Management.Console.Modules.Operations.Views"
+             xmlns:operationsvms="clr-namespace:Lux.Management.Console.Modules.Operations.ViewModels"
+             xmlns:projects="clr-namespace:Lux.Management.Console.Modules.Home.Views"
+             xmlns:projectsvms="clr-namespace:Lux.Management.Console.Modules.Home.ViewModels"
+             xmlns:mikrotikviews="clr-namespace:Lux.Management.Console.Modules.MikroTik.Views"
+             xmlns:mikrotikvms="clr-namespace:Lux.Management.Console.Modules.MikroTik.ViewModels"
+             xmlns:broadcastingviews="clr-namespace:Lux.Management.Console.Modules.Broadcasting.Views"
+             xmlns:broadcastingvms="clr-namespace:Lux.Management.Console.Modules.Broadcasting.ViewModels"
+             xmlns:voucherviews="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Vouchers.Views"
+             xmlns:vouchervms="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Vouchers.ViewModels"
+             xmlns:printingviews="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Printing.Views"
+             xmlns:printingvms="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Printing.ViewModels"
+             xmlns:profilesviews="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Profiles.Views"
+             xmlns:profilesvms="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Profiles.ViewModels"
+             xmlns:agentsviews="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Agents.Views"
+             xmlns:agentsvms="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Agents.ViewModels"
+             xmlns:settingsviews="clr-namespace:Lux.Management.Console.Modules.Settings.Views"
+             xmlns:settingsvms="clr-namespace:Lux.Management.Console.Modules.Settings.ViewModels"
+             xmlns:converters="clr-namespace:Lux.Management.Console.Converters"
+             xmlns:dbexplorerviews="clr-namespace:Lux.Management.Console.Modules.Settings.Views"
+             xmlns:dbexplorervms="clr-namespace:Lux.Management.Console.Modules.Settings.ViewModels"
+             xmlns:views="clr-namespace:Lux.Management.Console.Views"
+             xmlns:backupsvms="clr-namespace:Lux.Management.Console.Modules.MikroTik.Backups.ViewModels"
+             xmlns:backupsviews="clr-namespace:Lux.Management.Console.Modules.MikroTik.Backups.Views"
+             xmlns:hotspotviews="clr-namespace:Lux.Management.Console.Modules.MikroTik.Hotspot.Views"
+             xmlns:hotspotvms="clr-namespace:Lux.Management.Console.Modules.MikroTik.Hotspot.ViewModels"
+             Startup="OnStartup"
+             Exit="OnExit"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/SkinDefault.xaml"/>
+                <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/Theme.xaml"/>
+                <ResourceDictionary Source="pack://application:,,,/Lux.Management.Console;component/Themes/LightTheme.xaml"/>
+                <ResourceDictionary Source="pack://application:,,,/Lux.Management.Console;component/Themes/Styles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            
+            <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+            <converters:StringToBoolConverter x:Key="StringToBoolConverter" />
+
+            <DataTemplate DataType="{x:Type dashboard:DashboardViewModel}">
+                <dashboard:DashboardPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type projectsvms:HomeViewModel}">
+                <projects:HomePage />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type monitoring:DevicesMonitorViewModel}">
+                <monitoring:DevicesMonitorPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type operationsvms:OperationsCenterViewModel}">
+                <operationsviews:OperationsCenterPage />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type monitoring:AlertsViewModel}">
+                <monitoring:AlertsPage />
+            </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type vouchervms:VoucherManagementViewModel}">
+                <voucherviews:VoucherManagementPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type printingvms:TemplateManagementViewModel}">
+                <printingviews:TemplateManagementPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type dbexplorervms:DbExplorerViewModel}">
+                <dbexplorerviews:DbExplorerPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type profilesvms:ProfileManagementViewModel}">
+                <profilesviews:ProfileManagementPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type agentsvms:AgentManagementViewModel}">
+                <agentsviews:AgentManagementPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type settingsvms:SettingsViewModel}">
+                <settingsviews:SettingsPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type settingsvms:SyncViewModel}">
+                <settingsviews:SyncPage />
+            </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type mikrotikvms:MikroTikCenterViewModel}">
+                <mikrotikviews:MikroTikCenterPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type broadcastingvms:BroadcastingCenterViewModel}">
+                <broadcastingviews:BroadcastingCenterPage />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type viewmodels:LicenseViewModel}">
+                <views:LicensePage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type viewmodels:UpdatesViewModel}">
+                <views:UpdatesPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type viewmodels:AboutViewModel}">
+                <views:AboutPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type backupsvms:BackupsViewModel}">
+                <backupsviews:BackupsPage />
+            </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type hotspotvms:HotspotLoginViewModel}">
+                <hotspotviews:HotspotLoginPage />
+            </DataTemplate>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

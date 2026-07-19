@@ -1,0 +1,12 @@
+## Build outputs
+bin/
+obj/
+Publish/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+startup_error.log
+debug_drag.log
+build.log

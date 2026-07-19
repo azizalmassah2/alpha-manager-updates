@@ -1,0 +1,86 @@
+<Window x:Class="OpenWrtProgrammerPro.Views.LicenseInfoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="معلومات الترخيص" 
+        Height="420" Width="550"
+        Background="#f6f8fa" Foreground="#24292f"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        FlowDirection="RightToLeft">
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" BorderBrush="#d0d7de" BorderThickness="0,0,0,1" Padding="0,0,0,15" Margin="0,0,0,15">
+            <StackPanel>
+                <TextBlock Text="تفاصيل ترخيص لوكس كارد" FontSize="18" FontWeight="Bold" Foreground="#0077b6"/>
+                <TextBlock Text="حالة ترخيص البرنامج وملكيتك الفردية." FontSize="12" Foreground="#57606a" Margin="0,3,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Body -->
+        <Border Grid.Row="1" Background="#ffffff" BorderBrush="#d0d7de" BorderThickness="1" CornerRadius="8" Padding="15">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="اسم العميل:" FontWeight="Bold" Foreground="#57606a" Margin="0,5,0,5"/>
+                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="TxtCustomer" FontWeight="Bold" Foreground="#24292f" Margin="0,5,0,5"/>
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="رقم الترخيص (ID):" FontWeight="Bold" Foreground="#57606a" Margin="0,5,0,5"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="TxtLicenseId" Foreground="#24292f" Margin="0,5,0,5"/>
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="نوع الترخيص:" FontWeight="Bold" Foreground="#57606a" Margin="0,5,0,5"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="TxtType" FontWeight="Bold" Foreground="#0969da" Margin="0,5,0,5"/>
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="تاريخ الإصدار:" FontWeight="Bold" Foreground="#57606a" Margin="0,5,0,5"/>
+                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="TxtIssueDate" Foreground="#24292f" Margin="0,5,0,5"/>
+
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="تاريخ الانتهاء:" FontWeight="Bold" Foreground="#57606a" Margin="0,5,0,5"/>
+                    <TextBlock Grid.Row="4" Grid.Column="1" x:Name="TxtExpiryDate" Foreground="#24292f" Margin="0,5,0,5"/>
+
+                    <TextBlock Grid.Row="5" Grid.Column="0" Text="الأيام المتبقية:" FontWeight="Bold" Foreground="#57606a" Margin="0,5,0,5"/>
+                    <TextBlock Grid.Row="5" Grid.Column="1" x:Name="TxtRemaining" FontWeight="Bold" Foreground="#1a7f37" Margin="0,5,0,5"/>
+
+                    <TextBlock Grid.Row="6" Grid.Column="0" Text="إصدار نظام الحماية:" FontWeight="Bold" Foreground="#57606a" Margin="0,5,0,5"/>
+                    <TextBlock Grid.Row="6" Grid.Column="1" x:Name="TxtVersion" Foreground="#24292f" Margin="0,5,0,5"/>
+                </Grid>
+
+                <!-- HWID at the bottom of the card -->
+                <Border Grid.Row="1" Margin="0,10,0,0" BorderBrush="#e1e4e8" BorderThickness="0,1,0,0" Padding="0,10,0,0">
+                    <StackPanel>
+                        <TextBlock Text="معرّف الجهاز (Hardware ID):" FontSize="11" FontWeight="Bold" Foreground="#57606a"/>
+                        <TextBox x:Name="TxtHwid" IsReadOnly="True" BorderThickness="0" Background="Transparent" Foreground="#24292f" FontSize="10" FontWeight="Bold" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Actions -->
+        <Button Grid.Row="2" Content="موافق" Click="Close_Click" Background="#00b4d8" Foreground="White" Width="120" Height="35" HorizontalAlignment="Center" Margin="0,15,0,0" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}">
+            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="4"/></Style></Button.Resources>
+        </Button>
+    </Grid>
+</Window>

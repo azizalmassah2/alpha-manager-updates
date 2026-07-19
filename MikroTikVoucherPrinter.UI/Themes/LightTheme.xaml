@@ -1,0 +1,29 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ══════════════════ Light Theme (Apple-style White/Mist) ══════════════════ -->
+
+    <!-- Base Colors -->
+    <Color x:Key="AppBackgroundColor">#F5F5F7</Color>
+    <Color x:Key="SurfaceCardColor">#FFFFFF</Color>
+    <Color x:Key="PrimaryActionColor">#007AFF</Color>
+    <Color x:Key="TextMainColor">#1D1D1F</Color>
+    <Color x:Key="TextMutedColor">#86868B</Color>
+    <Color x:Key="BorderColor">#E5E5EA</Color>
+    <Color x:Key="InputFillColor">#F5F5F7</Color>
+    <Color x:Key="InputStrokeColor">#D1D1D6</Color>
+    
+    <!-- Base Brushes (The Keys to bind to) -->
+    <SolidColorBrush x:Key="AppBackground" Color="{StaticResource AppBackgroundColor}"/>
+    <SolidColorBrush x:Key="SurfaceCard" Color="{StaticResource SurfaceCardColor}"/>
+    <SolidColorBrush x:Key="PrimaryAction" Color="{StaticResource PrimaryActionColor}"/>
+    <SolidColorBrush x:Key="TextMain" Color="{StaticResource TextMainColor}"/>
+    <SolidColorBrush x:Key="TextMuted" Color="{StaticResource TextMutedColor}"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}"/>
+    <SolidColorBrush x:Key="InputFill" Color="{StaticResource InputFillColor}"/>
+    <SolidColorBrush x:Key="InputStroke" Color="{StaticResource InputStrokeColor}"/>
+
+    <!-- DataGrid Alternating Row -->
+    <SolidColorBrush x:Key="DataGridAltRow" Color="#FAFAFC"/>
+
+</ResourceDictionary>

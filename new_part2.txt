@@ -1,0 +1,134 @@
+﻿
+            <!-- CENTER: Card Preview + Font/Rows Settings -->
+            <Border Grid.Column="1" Style="{StaticResource CardStyle}" Padding="12" Margin="0,0,8,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Card Preview Canvas -->
+                    <Border Grid.Row="0" Background="{DynamicResource BgMediumBrush}" CornerRadius="8" ClipToBounds="True" DataContext="{Binding SelectedTemplate}">
+                        <Viewbox Margin="16" Stretch="Uniform" StretchDirection="Both">
+                            <Border BorderBrush="{Binding FrameColorHex}"
+                                    BorderThickness="{Binding FrameSize, Converter={StaticResource DoubleToThicknessConverter}, ConverterParameter=2}"
+                                    Background="White">
+                                <Border.Width>
+                                    <MultiBinding Converter="{StaticResource CardSizeConverter}" ConverterParameter="3.77">
+                                        <Binding Source="210.0"/>
+                                        <Binding Path="Columns"/>
+                                        <Binding Path="MarginX"/>
+                                    </MultiBinding>
+                                </Border.Width>
+                                <Border.Height>
+                                    <MultiBinding Converter="{StaticResource CardSizeConverter}" ConverterParameter="3.77">
+                                        <Binding Source="297.0"/>
+                                        <Binding Path="Rows"/>
+                                        <Binding Path="MarginY"/>
+                                    </MultiBinding>
+                                </Border.Height>
+                                <Grid ClipToBounds="True">
+                                    <Image Source="{Binding BackgroundImagePath}" Stretch="Fill"/>
+                                    <Image Source="{Binding LogoImagePath}" Width="40" Height="40" Margin="4" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                                    <Canvas>
+                                        <Canvas.LayoutTransform><ScaleTransform ScaleY="-1"/></Canvas.LayoutTransform>
+                                        <Thumb x:Name="ThumbUsername" DragDelta="Thumb_DragDelta" Tag="Username" Visibility="{Binding ShowUsername, Converter={StaticResource BoolToVis}}" Canvas.Left="{Binding UsernameX, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}" Canvas.Top="{Binding UsernameY, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}">
+                                            <Thumb.Template><ControlTemplate>
+                                                <TextBlock Text="77777777" Foreground="{Binding DataContext.SelectedTemplate.FontColorHex, RelativeSource={RelativeSource AncestorType=UserControl}}" FontFamily="{Binding DataContext.SelectedTemplate.FontFamily, RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="{Binding DataContext.SelectedTemplate.FontSize, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*3, RelativeSource={RelativeSource AncestorType=UserControl}}" Cursor="SizeAll"><TextBlock.LayoutTransform><ScaleTransform ScaleY="-1"/></TextBlock.LayoutTransform></TextBlock>
+                                            </ControlTemplate></Thumb.Template>
+                                        </Thumb>
+                                        <Thumb DragDelta="Thumb_DragDelta" Tag="Password" Visibility="{Binding ShowPassword, Converter={StaticResource BoolToVis}}" Canvas.Left="{Binding PasswordX, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}" Canvas.Top="{Binding PasswordY, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}">
+                                            <Thumb.Template><ControlTemplate>
+                                                <TextBlock Text="12345678" Foreground="{Binding DataContext.SelectedTemplate.FontColorHex, RelativeSource={RelativeSource AncestorType=UserControl}}" FontFamily="{Binding DataContext.SelectedTemplate.FontFamily, RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="{Binding DataContext.SelectedTemplate.FontSize, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*3, RelativeSource={RelativeSource AncestorType=UserControl}}" Cursor="SizeAll"><TextBlock.LayoutTransform><ScaleTransform ScaleY="-1"/></TextBlock.LayoutTransform></TextBlock>
+                                            </ControlTemplate></Thumb.Template>
+                                        </Thumb>
+                                        <Thumb DragDelta="Thumb_DragDelta" Tag="Qr" Visibility="{Binding ShowQr, Converter={StaticResource BoolToVis}}" Canvas.Left="{Binding QrX, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}" Canvas.Top="{Binding QrY, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}">
+                                            <Thumb.Template><ControlTemplate>
+                                                <Border Background="#1E293B" CornerRadius="2" Cursor="SizeAll" Width="{Binding DataContext.SelectedTemplate.QrSize, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6, RelativeSource={RelativeSource AncestorType=UserControl}}" Height="{Binding DataContext.SelectedTemplate.QrSize, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6, RelativeSource={RelativeSource AncestorType=UserControl}}"><Border.LayoutTransform><ScaleTransform ScaleY="-1"/></Border.LayoutTransform></Border>
+                                            </ControlTemplate></Thumb.Template>
+                                        </Thumb>
+                                        <Thumb DragDelta="Thumb_DragDelta" Tag="Price" Visibility="{Binding ShowPrice, Converter={StaticResource BoolToVis}}" Canvas.Left="{Binding PriceX, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}" Canvas.Top="{Binding PriceY, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}">
+                                            <Thumb.Template><ControlTemplate>
+                                                <TextBlock Text="1000 YER" Foreground="{Binding DataContext.SelectedTemplate.FontColorHex, RelativeSource={RelativeSource AncestorType=UserControl}}" FontFamily="{Binding DataContext.SelectedTemplate.FontFamily, RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="{Binding DataContext.SelectedTemplate.FontSize, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*3, RelativeSource={RelativeSource AncestorType=UserControl}}" Cursor="SizeAll"><TextBlock.LayoutTransform><ScaleTransform ScaleY="-1"/></TextBlock.LayoutTransform></TextBlock>
+                                            </ControlTemplate></Thumb.Template>
+                                        </Thumb>
+                                        <Thumb DragDelta="Thumb_DragDelta" Tag="Validity" Visibility="{Binding ShowValidity, Converter={StaticResource BoolToVis}}" Canvas.Left="{Binding ValidityX, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}" Canvas.Top="{Binding ValidityY, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}">
+                                            <Thumb.Template><ControlTemplate>
+                                                <TextBlock Text="30 Days" Foreground="{Binding DataContext.SelectedTemplate.FontColorHex, RelativeSource={RelativeSource AncestorType=UserControl}}" FontFamily="{Binding DataContext.SelectedTemplate.FontFamily, RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="{Binding DataContext.SelectedTemplate.FontSize, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*3, RelativeSource={RelativeSource AncestorType=UserControl}}" Cursor="SizeAll"><TextBlock.LayoutTransform><ScaleTransform ScaleY="-1"/></TextBlock.LayoutTransform></TextBlock>
+                                            </ControlTemplate></Thumb.Template>
+                                        </Thumb>
+                                        <Thumb DragDelta="Thumb_DragDelta" Tag="Time" Visibility="{Binding ShowTime, Converter={StaticResource BoolToVis}}" Canvas.Left="{Binding TimeX, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}" Canvas.Top="{Binding TimeY, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}">
+                                            <Thumb.Template><ControlTemplate>
+                                                <TextBlock Text="10 GB" Foreground="{Binding DataContext.SelectedTemplate.FontColorHex, RelativeSource={RelativeSource AncestorType=UserControl}}" FontFamily="{Binding DataContext.SelectedTemplate.FontFamily, RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="{Binding DataContext.SelectedTemplate.FontSize, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*3, RelativeSource={RelativeSource AncestorType=UserControl}}" Cursor="SizeAll"><TextBlock.LayoutTransform><ScaleTransform ScaleY="-1"/></TextBlock.LayoutTransform></TextBlock>
+                                            </ControlTemplate></Thumb.Template>
+                                        </Thumb>
+                                        <Thumb DragDelta="Thumb_DragDelta" Tag="SerialNumber" Visibility="{Binding ShowSerialNumber, Converter={StaticResource BoolToVis}}" Canvas.Left="{Binding SerialNumberX, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}" Canvas.Top="{Binding SerialNumberY, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}">
+                                            <Thumb.Template><ControlTemplate>
+                                                <TextBlock Text="SN-12345" Foreground="{Binding DataContext.SelectedTemplate.FontColorHex, RelativeSource={RelativeSource AncestorType=UserControl}}" FontFamily="{Binding DataContext.SelectedTemplate.FontFamily, RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="{Binding DataContext.SelectedTemplate.FontSize, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*3, RelativeSource={RelativeSource AncestorType=UserControl}}" Cursor="SizeAll"><TextBlock.LayoutTransform><ScaleTransform ScaleY="-1"/></TextBlock.LayoutTransform></TextBlock>
+                                            </ControlTemplate></Thumb.Template>
+                                        </Thumb>
+                                        <Thumb DragDelta="Thumb_DragDelta" Tag="PrintDate" Visibility="{Binding ShowPrintDate, Converter={StaticResource BoolToVis}}" Canvas.Left="{Binding PrintDateX, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}" Canvas.Top="{Binding PrintDateY, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}">
+                                            <Thumb.Template><ControlTemplate>
+                                                <TextBlock Text="2026/05/07" Foreground="{Binding DataContext.SelectedTemplate.FontColorHex, RelativeSource={RelativeSource AncestorType=UserControl}}" FontFamily="{Binding DataContext.SelectedTemplate.FontFamily, RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="{Binding DataContext.SelectedTemplate.FontSize, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*3, RelativeSource={RelativeSource AncestorType=UserControl}}" Cursor="SizeAll"><TextBlock.LayoutTransform><ScaleTransform ScaleY="-1"/></TextBlock.LayoutTransform></TextBlock>
+                                            </ControlTemplate></Thumb.Template>
+                                        </Thumb>
+                                        <Thumb DragDelta="Thumb_DragDelta" Tag="Barcode" Visibility="{Binding ShowBarcode, Converter={StaticResource BoolToVis}}" Canvas.Left="{Binding BarcodeX, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}" Canvas.Top="{Binding BarcodeY, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6}">
+                                            <Thumb.Template><ControlTemplate>
+                                                <Border Background="#333" CornerRadius="1" Cursor="SizeAll" Width="80" Height="{Binding DataContext.SelectedTemplate.BarcodeSize, Converter={StaticResource MathConverter}, ConverterParameter=@VALUE*6, RelativeSource={RelativeSource AncestorType=UserControl}}"><Border.LayoutTransform><ScaleTransform ScaleY="-1"/></Border.LayoutTransform></Border>
+                                            </ControlTemplate></Thumb.Template>
+                                        </Thumb>
+                                    </Canvas>
+                                </Grid>
+                            </Border>
+                        </Viewbox>
+                    </Border>
+
+                    <!-- Font + Info Bar below preview -->
+                    <Border Grid.Row="1" DataContext="{Binding SelectedTemplate}" Margin="0,8,0,0" Padding="6,6" Background="{DynamicResource BgMediumBrush}" CornerRadius="6">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="الخط" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" Margin="0,0,0,2"/>
+                                <ComboBox Text="{Binding FontFamily}" FontSize="11" Height="26" Padding="4,2">
+                                    <ComboBoxItem Content="Arial"/><ComboBoxItem Content="Tahoma"/><ComboBoxItem Content="Segoe UI"/>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="الحجم" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" Margin="0,0,0,2"/>
+                                <TextBox Text="{Binding FontSize}" Style="{StaticResource ModernTextBoxStyle}" FontSize="11" Padding="4,2" Height="26"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="4" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <TextBlock Text="غامق" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" HorizontalAlignment="Center"/>
+                                <CheckBox IsChecked="{Binding IsBold}" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="6" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <TextBlock Text="مائل" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" HorizontalAlignment="Center"/>
+                                <CheckBox IsChecked="{Binding IsItalic}" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="8">
+                                <TextBlock Text="لون النص" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" Margin="0,0,0,2"/>
+                                <TextBox Text="{Binding FontColorHex}" Style="{StaticResource ModernTextBoxStyle}" FontSize="11" Padding="4,2" Height="26"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="10" VerticalAlignment="Center">
+                                <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" TextAlignment="Center">
+                                    <Run Text="إجمالي: "/>
+                                    <Run Text="{Binding DataContext.PreviewCards.Count, Mode=OneWay, RelativeSource={RelativeSource AncestorType=UserControl}}" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}"/>
+                                    <Run Text=" كرت"/>
+                                </TextBlock>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>

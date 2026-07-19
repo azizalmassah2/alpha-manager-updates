@@ -1,0 +1,97 @@
+﻿<Window x:Class="Lux.Management.Console.Modules.MikroTik.UserManager.Printing.Views.Dialogs.ColorPickerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="اختر اللون" 
+        Height="300" Width="360"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        FlowDirection="RightToLeft">
+
+    <Window.Resources>
+        <Style x:Key="ColorSquareStyle" TargetType="Button">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Margin" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="4" BorderThickness="1" BorderBrush="#888">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#FFF"/>
+                                <Setter TargetName="border" Property="BorderThickness" Value="2"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border CornerRadius="8" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+        <Grid Margin="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <TextBlock Grid.Row="0" Text="اختر لوناً" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,0,12"/>
+
+            <!-- Color Palette Grid -->
+            <UniformGrid Grid.Row="1" Columns="6" Rows="3" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#000000" Click="ColorSquare_Click"/>
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#FFFFFF" Click="ColorSquare_Click"/>
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#FF0000" Click="ColorSquare_Click"/>
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#00FF00" Click="ColorSquare_Click"/>
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#0000FF" Click="ColorSquare_Click"/>
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#FFFF00" Click="ColorSquare_Click"/>
+
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#FFA500" Click="ColorSquare_Click"/>
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#800080" Click="ColorSquare_Click"/>
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#FFC0CB" Click="ColorSquare_Click"/>
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#008080" Click="ColorSquare_Click"/>
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#808080" Click="ColorSquare_Click"/>
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#ADD8E6" Click="ColorSquare_Click"/>
+
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#8B0000" Click="ColorSquare_Click"/>
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#006400" Click="ColorSquare_Click"/>
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#00008B" Click="ColorSquare_Click"/>
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#FFD700" Click="ColorSquare_Click"/>
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#4B0082" Click="ColorSquare_Click"/>
+                <Button Style="{StaticResource ColorSquareStyle}" Background="#A52A2A" Click="ColorSquare_Click"/>
+            </UniformGrid>
+
+            <!-- Custom Hex Input -->
+            <Grid Grid.Row="2" Margin="0,12,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="40"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="كود اللون (HEX):" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center" FontSize="12"/>
+                <TextBox Grid.Column="2" x:Name="TxtColorHex" Height="30" VerticalContentAlignment="Center" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="6,2" TextChanged="TxtColorHex_TextChanged"/>
+                <Border Grid.Column="4" x:Name="BdrPreview" CornerRadius="4" BorderThickness="1" BorderBrush="#888" Width="30" Height="30" Background="Black"/>
+            </Grid>
+
+            <!-- Action Buttons -->
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Left">
+                <Button Content="تطبيق" Click="BtnSave_Click" Style="{StaticResource PrimaryButtonStyle}" Width="90" Height="32" Margin="0,0,8,0"/>
+                <Button Content="إلغاء" Click="BtnCancel_Click" Style="{StaticResource SecondaryButtonStyle}" Width="90" Height="32"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

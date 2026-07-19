@@ -1,0 +1,90 @@
+<Window x:Class="OpenWrtProgrammerPro.Views.ActivationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="تفعيل برنامج لوكس كارد" 
+        Height="550" Width="680"
+        Background="#f6f8fa" Foreground="#24292f"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        FlowDirection="RightToLeft">
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" BorderBrush="#d0d7de" BorderThickness="0,0,0,1" Padding="0,0,0,15" Margin="0,0,0,15">
+            <StackPanel>
+                <TextBlock Text="تفعيل ترخيص برنامج لوكس كارد ( مودمات )" FontSize="20" FontWeight="Bold" Foreground="#0077b6"/>
+                <TextBlock Text="البرنامج غير مفعل. يرجى إرسال معرف الجهاز أدناه إلى المطور للحصول على ملف الترخيص." FontSize="12" Foreground="#57606a" Margin="0,5,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Body -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="220"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Inputs & HWID -->
+            <StackPanel Grid.Column="0" Margin="0,0,15,0">
+                <Label Content="اسم العميل (الاسم الاختياري لتضمينه في الطلب):" FontWeight="Bold" Foreground="#24292f" Margin="0,0,0,5"/>
+                <TextBox x:Name="TxtCustomerName" TextChanged="TxtCustomerName_TextChanged" Background="#ffffff" Foreground="#24292f" BorderBrush="#d0d7de" Height="32" Padding="5" VerticalContentAlignment="Center" Margin="0,0,0,15"/>
+
+                <Label Content="معرّف الجهاز الخاص بك (Hardware ID):" FontWeight="Bold" Foreground="#24292f" Margin="0,0,0,5"/>
+                <Grid Margin="0,0,0,15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <TextBox Grid.Column="0" x:Name="TxtHardwareId" IsReadOnly="True" Background="#ffffff" Foreground="#24292f" BorderBrush="#d0d7de" Height="35" Padding="5" VerticalContentAlignment="Center" FontSize="11" FontWeight="Bold" Margin="0,0,10,0"/>
+                    <Button Grid.Column="1" Content="📋 نسخ المعرّف" Click="Copy_Click" Background="#f6f8fa" Foreground="#24292f" BorderBrush="#d0d7de" BorderThickness="1" Width="100" Height="35" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}">
+                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="4"/></Style></Button.Resources>
+                    </Button>
+                </Grid>
+
+                <Button Content="📄 تصدير طلب التفعيل (activation_request.txt)" Click="Export_Click" Background="#ffffff" Foreground="#0969da" BorderBrush="#0969da" BorderThickness="1" Height="38" FontWeight="Bold" Margin="0,0,0,20" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}">
+                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                </Button>
+
+                <Border Background="#ffebe9" BorderBrush="#ff8182" BorderThickness="1" CornerRadius="6" Padding="10">
+                    <TextBlock Text="تنبيه: لا تقم بمشاركة هذا المعرف أو ملف الترخيص مع أي شخص آخر. الترخيص مرتبط بجهازك هذا فقط ولن يعمل على جهاز كمبيوتر آخر." TextWrapping="Wrap" Foreground="#cf222e" FontSize="11" FontWeight="SemiBold"/>
+                </Border>
+            </StackPanel>
+
+            <!-- QR Code Panel -->
+            <Border Grid.Column="1" BorderBrush="#d0d7de" BorderThickness="1,0,0,0" Padding="15,0,0,0">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="مسح كود التفعيل السريع" FontSize="12" FontWeight="Bold" Foreground="#57606a" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                    <Border BorderBrush="#d0d7de" BorderThickness="1" Padding="5" Background="White" CornerRadius="4" Width="190" Height="190">
+                        <Image x:Name="ImgQrCode" Stretch="Uniform"/>
+                    </Border>
+                    <TextBlock Text="يمكنك تصوير الكود وإرساله للمطور لتفعيل الترخيص فوراً" TextWrapping="Wrap" FontSize="10" Foreground="#57606a" TextAlignment="Center" Margin="0,8,0,0"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Actions -->
+        <Border Grid.Row="2" BorderBrush="#d0d7de" BorderThickness="0,1,0,0" Padding="0,15,0,0" Margin="0,15,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0" Content="📥 تحميل ملف الترخيص (license.dat)" Click="LoadLicense_Click" Background="#06d6a0" Foreground="White" FontWeight="Bold" FontSize="14" Height="40" Margin="0,0,10,0" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}">
+                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                </Button>
+
+                <Button Grid.Column="1" Content="إغلاق البرنامج" Click="Close_Click" Background="#f6f8fa" Foreground="#24292f" BorderBrush="#d0d7de" BorderThickness="1" FontSize="14" Width="130" Height="40" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}">
+                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                </Button>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

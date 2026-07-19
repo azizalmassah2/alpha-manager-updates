@@ -1,0 +1,43 @@
+<Application x:Class="OpenWrtProgrammerPro.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <!-- Global dark theme control styles can be defined here if needed, or we can use default control overrides -->
+        <ResourceDictionary>
+            <!-- Modern Styling for TextBox -->
+            <Style TargetType="TextBox">
+                <Setter Property="Background" Value="#ffffff"/>
+                <Setter Property="Foreground" Value="#24292f"/>
+                <Setter Property="BorderBrush" Value="#d0d7de"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Padding" Value="5"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Style.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="4"/>
+                    </Style>
+                </Style.Resources>
+            </Style>
+
+            <!-- Modern Styling for ComboBox -->
+            <Style TargetType="ComboBox">
+                <Setter Property="Background" Value="#ffffff"/>
+                <Setter Property="Foreground" Value="#24292f"/>
+                <Setter Property="BorderBrush" Value="#d0d7de"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Style.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="4"/>
+                    </Style>
+                </Style.Resources>
+            </Style>
+
+            <!-- Modern Styling for RadioButton -->
+            <Style TargetType="RadioButton">
+                <Setter Property="Foreground" Value="#24292f"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="Margin" Value="0,0,10,0"/>
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -1,0 +1,53 @@
+<Window x:Class="Lux.Management.Console.Modules.MikroTik.RouterManagement.Views.ConfigureMonitoringDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:hc="https://handyorg.github.io/handycontrol"
+        Title="إعداد مراقبة الفيلان"
+        Height="360" Width="420"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        FlowDirection="RightToLeft"
+        Background="{DynamicResource RegionBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}">
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,15">
+            <TextBlock Text="إعداد مراقبة جهاز VLAN" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}"/>
+            <TextBlock Text="قم بتحديد عنوان IP الخاص بالجهاز المرتبط بالفيلان لمراقبة حالته وحساب زمن الاستجابة تلقائياً بالخلفية." FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,5,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" VerticalAlignment="Center">
+            <!-- Device IP -->
+            <TextBlock Text="عنوان IP للجهاز (مطلوب):" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6"/>
+            <TextBox x:Name="TxtDeviceIp"
+                     hc:InfoElement.Placeholder="مثال: 192.168.10.1"
+                     Style="{StaticResource TextBoxExtend}"
+                     Height="35" Margin="0,0,0,15"/>
+
+            <!-- Description -->
+            <TextBlock Text="الوصف / اسم الجهاز (اختياري):" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6"/>
+            <TextBox x:Name="TxtDescription"
+                     hc:InfoElement.Placeholder="مثال: سويتش التوزيع الرئيسي"
+                     Style="{StaticResource TextBoxExtend}"
+                     Height="35" Margin="0,0,0,15"/>
+
+            <!-- Enable Checkbox -->
+            <CheckBox x:Name="ChkEnableMonitoring" 
+                      Content="تفعيل مراقبة حالة الجهاز" 
+                      IsChecked="True"
+                      Margin="0,5,0,0"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,15,0,0">
+            <Button Content="حفظ الإعدادات" Click="BtnSave_Click" Style="{StaticResource ButtonPrimary}" Width="110" Margin="0,0,10,0"/>
+            <Button Content="إلغاء" Click="BtnCancel_Click" Style="{StaticResource ButtonDefault}" Width="80"/>
+        </StackPanel>
+    </Grid>
+</Window>

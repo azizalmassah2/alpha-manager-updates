@@ -1,0 +1,123 @@
+<Window x:Class="OpenWrtProgrammerPro.Views.PreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="معاينة الإعدادات المقترحة" 
+        Height="550" Width="600"
+        Background="#f6f8fa" Foreground="#24292f"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        FlowDirection="RightToLeft">
+    
+    <Window.Resources>
+        <!-- Style for labels -->
+        <Style x:Key="HeaderLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#57606a"/>
+            <Setter Property="Margin" Value="0,0,0,5"/>
+        </Style>
+        <Style x:Key="ValueLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="Foreground" Value="#24292f"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,0,0,15"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" BorderBrush="#d0d7de" BorderThickness="0,0,0,1" Padding="0,0,0,15" Margin="0,0,0,15">
+            <StackPanel>
+                <TextBlock Text="معاينة إعدادات البرمجة قبل التطبيق" FontSize="20" FontWeight="Bold" Foreground="#0077b6"/>
+                <TextBlock Text="يرجى مراجعة الإعدادات التالية بدقة قبل الضغط على تأكيد للتطبيق." FontSize="12" Foreground="#57606a" Margin="0,5,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Settings Preview List -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,0,15">
+            <StackPanel>
+                <!-- Warning Alert -->
+                <Border Background="#ffebe9" BorderBrush="#ff8182" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,20">
+                    <TextBlock Text="تنبيه: بعد البرمجة وتطبيق التغييرات، سيتغير عنوان IP للجهاز بشكل دائم ويصبح متاحاً على العنوان الجديد فقط! يجب التأكد من صحة التوصيل والمدخلات." 
+                               TextWrapping="Wrap" Foreground="#cf222e" FontSize="12" FontWeight="Bold"/>
+                </Border>
+
+                <!-- Targets -->
+                <TextBlock Text="عناوين الأجهزة المستهدفة:" Style="{StaticResource HeaderLabel}"/>
+                <TextBlock x:Name="TxtTargetIps" Style="{StaticResource ValueLabel}"/>
+
+                <!-- Hostnames -->
+                <TextBlock Text="أسماء المضيفين المقترحة:" Style="{StaticResource HeaderLabel}"/>
+                <TextBlock x:Name="TxtHostnames" Style="{StaticResource ValueLabel}"/>
+
+                <!-- Network Grid -->
+                <UniformGrid Columns="2">
+                    <StackPanel>
+                        <TextBlock Text="البوابة (Gateway):" Style="{StaticResource HeaderLabel}"/>
+                        <TextBlock x:Name="TxtGateway" Style="{StaticResource ValueLabel}"/>
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="قناع الشبكة:" Style="{StaticResource HeaderLabel}"/>
+                        <TextBlock x:Name="TxtSubnet" Style="{StaticResource ValueLabel}"/>
+                    </StackPanel>
+                </UniformGrid>
+
+                <UniformGrid Columns="2">
+                    <StackPanel>
+                        <TextBlock Text="معرّف VLAN ID:" Style="{StaticResource HeaderLabel}"/>
+                        <TextBlock x:Name="TxtVlan" Style="{StaticResource ValueLabel}" Foreground="#06d6a0" FontWeight="Bold"/>
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="حالة خادم DHCP:" Style="{StaticResource HeaderLabel}"/>
+                        <TextBlock x:Name="TxtDhcp" Style="{StaticResource ValueLabel}" Foreground="#ef476f" FontWeight="Bold"/>
+                    </StackPanel>
+                </UniformGrid>
+
+                <!-- Wi-Fi AP Info -->
+                <TextBlock Text="شبكة 2.4GHz (نقطة وصول AP):" Style="{StaticResource HeaderLabel}"/>
+                <TextBlock x:Name="TxtWifi24" Style="{StaticResource ValueLabel}"/>
+
+                <TextBlock Text="وضع الراديو الثاني (5GHz):" Style="{StaticResource HeaderLabel}"/>
+                <TextBlock x:Name="TxtWifi5Mode" Style="{StaticResource ValueLabel}" FontWeight="Bold"/>
+
+                <TextBlock x:Name="LblWifi5Details" Text="شبكة 5GHz (نقطة وصول AP):" Style="{StaticResource HeaderLabel}"/>
+                <TextBlock x:Name="TxtWifi5Details" Style="{StaticResource ValueLabel}"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Actions -->
+        <Border Grid.Row="2" BorderBrush="#d0d7de" BorderThickness="0,1,0,0" Padding="0,15,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0" Content="تأكيد البرمجة وتطبيق التغييرات" Click="Confirm_Click" 
+                        Background="#e94560" Foreground="White" FontWeight="Bold" FontSize="14" Height="40" Margin="0,0,10,0"
+                        Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}">
+                    <Button.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="CornerRadius" Value="6"/>
+                        </Style>
+                    </Button.Resources>
+                </Button>
+                
+                <Button Grid.Column="1" Content="إلغاء والتعديل" Click="Cancel_Click" 
+                        Background="#f6f8fa" Foreground="#24292f" BorderBrush="#d0d7de" BorderThickness="1" FontSize="14" Height="40" Margin="10,0,0,0"
+                        Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}">
+                    <Button.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="CornerRadius" Value="6"/>
+                        </Style>
+                    </Button.Resources>
+                </Button>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

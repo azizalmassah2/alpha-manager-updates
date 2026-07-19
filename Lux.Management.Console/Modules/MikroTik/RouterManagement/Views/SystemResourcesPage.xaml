@@ -1,0 +1,88 @@
+﻿<UserControl x:Class="Lux.Management.Console.Modules.MikroTik.RouterManagement.Views.SystemResourcesPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:hc="https://handyorg.github.io/handycontrol"
+      xmlns:viewmodels="clr-namespace:Lux.Management.Console.Modules.MikroTik.RouterManagement.ViewModels"
+      d:DataContext="{d:DesignInstance Type=viewmodels:SystemResourcesViewModel}"
+      mc:Ignorable="d" 
+      d:DesignHeight="600" d:DesignWidth="800">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="موارد النظام (Live)" FontSize="24" FontWeight="Bold" Margin="0,0,0,20" Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                
+                <hc:Card Margin="0,0,0,20">
+                    <Grid Margin="15">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="الحالة العامة:" FontWeight="Bold" Margin="0,0,0,10"/>
+                        <TextBlock Grid.Row="1" Text="{Binding Resources.OverallHealth}" FontSize="20" Foreground="{DynamicResource SuccessBrush}" FontWeight="Bold"/>
+                    </Grid>
+                </hc:Card>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <hc:Card Grid.Column="0" Margin="0,0,10,0">
+                        <StackPanel Margin="15" HorizontalAlignment="Center">
+                            <TextBlock Text="استهلاك المعالج" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,15"/>
+                            <!-- Circle Progress Bar -->
+                            <hc:CircleProgressBar Value="{Binding Resources.CpuLoadPercent}" Width="120" Height="120" ArcThickness="10" Text="{Binding Resources.CpuLoadPercent, StringFormat={}{0}%}" ShowText="True" TextElement.FontSize="20"/>
+                        </StackPanel>
+                    </hc:Card>
+
+                    <hc:Card Grid.Column="1" Margin="10,0,10,0">
+                        <StackPanel Margin="15" HorizontalAlignment="Center">
+                            <TextBlock Text="استهلاك الذاكرة" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,15"/>
+                            <hc:CircleProgressBar Value="{Binding Resources.MemoryUsagePercent}" Width="120" Height="120" ArcThickness="10" Text="{Binding Resources.MemoryUsagePercent, StringFormat={}{0}%}" ShowText="True" TextElement.FontSize="20"/>
+                        </StackPanel>
+                    </hc:Card>
+
+                    <hc:Card Grid.Column="2" Margin="10,0,0,0">
+                        <StackPanel Margin="15" HorizontalAlignment="Center">
+                            <TextBlock Text="استهلاك التخزين" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,15"/>
+                            <hc:CircleProgressBar Value="{Binding Resources.DiskUsagePercent}" Width="120" Height="120" ArcThickness="10" Text="{Binding Resources.DiskUsagePercent, StringFormat={}{0}%}" ShowText="True" TextElement.FontSize="20"/>
+                        </StackPanel>
+                    </hc:Card>
+                </Grid>
+                
+                <hc:Card Margin="0,20,0,0">
+                    <Grid Margin="15">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="درجة الحرارة" FontWeight="Bold" Margin="0,0,0,5"/>
+                            <TextBlock Text="{Binding Resources.Temperature, TargetNullValue='غير مدعوم', StringFormat={}{0} °C}" FontSize="18"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="الجهد الكهربائي (Voltage)" FontWeight="Bold" Margin="0,0,0,5"/>
+                            <TextBlock Text="{Binding Resources.Voltage, TargetNullValue='غير مدعوم', StringFormat={}{0} V}" FontSize="18"/>
+                        </StackPanel>
+                    </Grid>
+                </hc:Card>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
+
+
