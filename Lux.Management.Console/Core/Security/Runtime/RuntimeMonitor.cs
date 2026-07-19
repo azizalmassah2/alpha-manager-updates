@@ -144,55 +144,78 @@ public class RuntimeMonitor : IRuntimeMonitor
         }
     }
 
-    private void TriggerGracefulSecurityShutdown(string source, string reason)
-    {
-        // 1. التثبت والتأكيد الأمني لمنع القراءات الخاطئة
-        var confirmDebugger = _antiTamperService.DetectDebugger();
-        var confirmIntegrity = _antiTamperService.VerifyLoadedAssemblies();
-        
-        if (!confirmDebugger && confirmIntegrity && source.Contains("DEBUGGER"))
-        {
-            return; // تجاهل القراءة الخاطئة للمصحح
-        }
-
-        // 2. نشر حدث التلاعب عبر الناشر (مفكوك الارتباط)
-        _eventPublisher.Publish(new TamperAuditEvent(source, reason, $"Security shutdown triggered. Reason: {reason}")
-        {
-            CorrelationId = _securityContext.SessionId.ToString()
-        });
-
-        // 3. إبطال الجلسة وتخفيض الصلاحيات فوراً في الذاكرة
-        _securityContextUpdater.Invalidate();
-
-        // 4. محاولة الإغلاق المتدرج للنوافذ والاتصالات والـ Application
-        try
-        {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-            {
-                foreach (System.Windows.Window window in System.Windows.Application.Current.Windows)
-                {
-                    try { window.Close(); } catch { }
-                }
-                System.Windows.Application.Current.Shutdown();
-            });
-        }
-        catch
-        {
-            // تجاهل خطأ الـ Dispatcher لمتابعة القتل الفوري
-        }
-
-        // 5. فرض القتل الإجباري في حال تعذر إكمال الإغلاق المتدرج
-        Thread.Sleep(SecurityConfiguration.GracefulShutdownTimeoutMs);
-        _antiTamperService.TriggerEmergencyShutdown();
-    }
-
-    public void Dispose()
-    {
-        lock (_lock)
-        {
-            if (_disposed) return;
-            _cts?.Dispose();
-            _disposed = true;
-        }
-    }
+     private void TriggerGracefulSecurityShutdown(string source, string reason)
+     {
+         // 1. التثبت والتأكيد الأمني لمنع القراءات الخاطئة
+         var confirmDebugger = _antiTamperService.DetectDebugger();
+         var confirmIntegrity = _antiTamperService.VerifyLoadedAssemblies();
+         
+         if (!confirmDebugger && confirmIntegrity && source.Contains("DEBUGGER"))
+         {
+             return; // تجاهل القراءة الخاطئة للمصحح
+         }
+ 
+         // 2. نشر حدث التلاعب عبر الناشر (مفكوك الارتباط)
+         _eventPublisher.Publish(new TamperAuditEvent(source, reason, $"Security shutdown triggered. Reason: {reason}")
+         {
+             CorrelationId = _securityContext.SessionId.ToString()
+         });
+ 
+         // 3. إبطال الجلسة وتخفيض الصلاحيات فوراً في الذاكرة
+         _securityContextUpdater.Invalidate();
+ 
+         // 4. محاولة الإغلاق المتدرج للنوافذ والاتصالات والـ Application
+         try
+         {
+             var app = System.Windows.Application.Current;
+             if (app != null)
+             {
+                 app.Dispatcher.Invoke(() =>
+                 {
+                     try
+                     {
+                         // إغلاق النوافذ النشطة بأمان
+                         foreach (System.Windows.Window window in app.Windows)
+                         {
+                             try { window.Close(); } catch { }
+                         }
+                     }
+                     catch { }
+ 
+                     try
+                     {
+                         app.Shutdown();
+                     }
+                     catch { }
+                 });
+             }
+         }
+         catch
+         {
+             // تجاهل خطأ الـ Dispatcher لمتابعة القتل الفوري
+         }
+ 
+         // 5. فرض القتل الإجباري في حال تعذر إكمال الإغلاق المتدرج
+         Thread.Sleep(SecurityConfiguration.GracefulShutdownTimeoutMs);
+         _antiTamperService.TriggerEmergencyShutdown();
+     }
+ 
+     public void Dispose()
+     {
+         lock (_lock)
+         {
+             if (_disposed) return;
+             if (_cts != null)
+             {
+                 try
+                 {
+                     _cts.Cancel();
+                 }
+                 catch { }
+                 _cts.Dispose();
+                 _cts = null;
+             }
+             _disposed = true;
+         }
+     }
 }

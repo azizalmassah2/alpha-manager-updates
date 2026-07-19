@@ -516,18 +516,29 @@ public partial class App : Application
 
     private async void OnExit(object sender, ExitEventArgs e)
     {
-        var autoRefresh = _host.Services.GetRequiredService<IAutoRefreshService>();
-        autoRefresh.Stop();
-
         try
         {
-            var runtimeMonitor = _host.Services.GetRequiredService<IRuntimeMonitor>();
-            await runtimeMonitor.StopAsync();
-            runtimeMonitor.Dispose();
+            var autoRefresh = _host.Services.GetService<IAutoRefreshService>();
+            autoRefresh?.Stop();
         }
         catch { }
 
-        await _host.StopAsync();
-        _host.Dispose();
+        try
+        {
+            var runtimeMonitor = _host.Services.GetService<IRuntimeMonitor>();
+            if (runtimeMonitor != null)
+            {
+                await runtimeMonitor.StopAsync();
+                runtimeMonitor.Dispose();
+            }
+        }
+        catch { }
+
+        try
+        {
+            await _host.StopAsync();
+            _host.Dispose();
+        }
+        catch { }
     }
 }

@@ -29,8 +29,9 @@ public class ApiProviderTests
     public async Task Provider_ExecuteAsync_TranslatesException()
     {
         var mockApiClient = new Mock<IRouterOsApiClient>();
+        mockApiClient.Setup(c => c.IsConnected).Returns(true);
         mockApiClient.Setup(c => c.ConnectAsync(It.IsAny<MikroTikConnectionOptions>())).Returns(Task.CompletedTask);
-        mockApiClient.Setup(c => c.ExecuteAsync(It.IsAny<string>()))
+        mockApiClient.Setup(c => c.ExecuteAsync(It.IsAny<string>(), It.IsAny<string[]>()))
                      .ThrowsAsync(new Exception("Tik4net execute error"));
 
         var provider = new RouterOsApiProvider(mockApiClient.Object);
@@ -43,6 +44,7 @@ public class ApiProviderTests
     public async Task Provider_ExecuteAsync_MapsDataCorrectly()
     {
         var mockApiClient = new Mock<IRouterOsApiClient>();
+        mockApiClient.Setup(c => c.IsConnected).Returns(true);
         mockApiClient.Setup(c => c.ConnectAsync(It.IsAny<MikroTikConnectionOptions>())).Returns(Task.CompletedTask);
 
         var sampleData = new List<IDictionary<string, string>>
@@ -50,7 +52,7 @@ public class ApiProviderTests
             new Dictionary<string, string> { { "name", "MikroTik-Router" } }
         };
 
-        mockApiClient.Setup(c => c.ExecuteAsync(It.IsAny<string>())).ReturnsAsync(sampleData);
+        mockApiClient.Setup(c => c.ExecuteAsync(It.IsAny<string>(), It.IsAny<string[]>())).ReturnsAsync(sampleData);
 
         var provider = new RouterOsApiProvider(mockApiClient.Object);
         await provider.ConnectAsync(new MikroTikConnectionOptions());

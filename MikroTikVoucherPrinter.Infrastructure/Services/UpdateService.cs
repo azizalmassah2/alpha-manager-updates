@@ -166,12 +166,49 @@ public class UpdateService : IUpdateService
             }
         } // هنا يتم إغلاق الملف وتحرير قفل الويندوز عنه تماماً
 
-        // TODO: التحقق من SHA256 هنا عند تفعيل هذه الميزة
-        // if (!string.IsNullOrEmpty(update.Sha256)) VerifyHash(tempPath, update.Sha256);
+        // التحقق من SHA256 لضمان سلامة التحديث وعدم العبث به
+        if (!string.IsNullOrEmpty(update.Sha256))
+        {
+            _logger.LogInformation("🛡️ [Update] جاري التحقق من بصمة SHA-256 لملف التحديث...");
+            VerifyHash(tempPath, update.Sha256);
+        }
 
         _logger.LogInformation("✅ [Update] اكتمل التنزيل — تشغيل المثبّت: {Path}", tempPath);
 
         Process.Start(new ProcessStartInfo(tempPath) { UseShellExecute = true });
         Environment.Exit(0);
+    }
+
+    private void VerifyHash(string filePath, string expectedHash)
+    {
+        try
+        {
+            using var sha256 = System.Security.Cryptography.SHA256.Create();
+            using var fileStream = File.OpenRead(filePath);
+            var hashBytes = sha256.ComputeHash(fileStream);
+            var computedHash = Convert.ToHexString(hashBytes).ToLowerInvariant();
+            
+            var cleanedExpected = expectedHash.Trim().ToLowerInvariant();
+            if (computedHash != cleanedExpected)
+            {
+                throw new System.Security.Cryptography.CryptographicException(
+                    $"SHA-256 verification failed. Expected: {cleanedExpected}, Computed: {computedHash}");
+            }
+            
+            _logger.LogInformation("🛡️ [Update] تم التحقق من بصمة SHA-256 بنجاح للملف المحمل.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ [Update] فشل التحقق من سلامة وصلاحية التحديث");
+            
+            // حذف الملف المؤقت التالف/المعدل فوراً للحماية
+            try
+            {
+                if (File.Exists(filePath)) File.Delete(filePath);
+            }
+            catch { }
+            
+            throw;
+        }
     }
 }
