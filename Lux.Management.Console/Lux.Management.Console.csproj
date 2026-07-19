@@ -25,6 +25,10 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
+    <PackageReference Include="Obfuscar" Version="2.2.50">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
@@ -44,5 +48,103 @@
   <ItemGroup>
     <EmbeddedResource Include="Assets\ALFA.enc" />
   </ItemGroup>
+
+  <UsingTask TaskName="GenerateIntegrityFile" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildBinPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <TargetDirectory ParameterType="System.String" Required="true" />
+      <ProjectDirectory ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Security.Cryptography" />
+      <Using Namespace="System.Text" />
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+          string[] files = new string[] {
+              "Lux.MikroTik.dll",
+              "Lux.OpenWrt.dll",
+              "Lux.Platform.Abstractions.dll",
+              "MikroTikVoucherPrinter.Application.dll",
+              "MikroTikVoucherPrinter.Infrastructure.dll"
+          };
+          
+          StringBuilder sb = new StringBuilder();
+          foreach (string file in files)
+          {
+              string filePath = Path.Combine(TargetDirectory, file);
+              if (!File.Exists(filePath))
+              {
+                  Log.LogError("DLL not found for integrity hashing: " + filePath);
+                  return false;
+              }
+              
+              byte[] fileBytes = File.ReadAllBytes(filePath);
+              byte[] hashBytes;
+              using (var sha = SHA256.Create())
+              {
+                  hashBytes = sha.ComputeHash(fileBytes);
+              }
+              
+              StringBuilder hashString = new StringBuilder();
+              foreach (byte b in hashBytes)
+              {
+                  hashString.Append(b.ToString("x2"));
+              }
+              
+              sb.AppendLine(file + ":" + hashString.ToString());
+              Log.LogMessage(MessageImportance.High, "Integrity Hash for " + file + " = " + hashString.ToString());
+          }
+          
+          byte[] plainBytes = Encoding.UTF8.GetBytes(sb.ToString().Trim());
+          
+          byte[] keyBytes = new byte[32];
+          byte[] ivBytes = new byte[16];
+          byte[] rawKeySource = Encoding.UTF8.GetBytes("AlphaManagerSecureAssemblyIntegrityKey2026");
+          Array.Copy(rawKeySource, keyBytes, Math.Min(rawKeySource.Length, 32));
+          Array.Copy(rawKeySource, ivBytes, Math.Min(rawKeySource.Length, 16));
+          
+          byte[] cipherBytes;
+          using (Aes aes = Aes.Create())
+          {
+              aes.Key = keyBytes;
+              aes.IV = ivBytes;
+              using (MemoryStream ms = new MemoryStream())
+              {
+                  using (CryptoStream cs = new CryptoStream(ms, aes.CreateEncryptor(), CryptoStreamMode.Write))
+                  {
+                      cs.Write(plainBytes, 0, plainBytes.Length);
+                      cs.FlushFinalBlock();
+                  }
+                  cipherBytes = ms.ToArray();
+              }
+          }
+          
+          string outputPath = Path.Combine(TargetDirectory, "integrity.dat");
+          File.WriteAllBytes(outputPath, cipherBytes);
+          Log.LogMessage(MessageImportance.High, "🔒 [Integrity] Generated signed integrity.dat at: " + outputPath);
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="ObfuscateRelease" AfterTargets="AfterBuild" Condition="'$(Configuration)' == 'Release'">
+    <Message Importance="High" Text="🔒 [Obfuscar] Running Obfuscar obfuscation from '$(TargetDir)'..." />
+    <Exec Command="&quot;$(NugetPackageRoot)obfuscar\2.2.50\tools\Obfuscar.Console.exe&quot; &quot;$(MSBuildProjectDirectory)\obfuscar.xml&quot;" WorkingDirectory="$(TargetDir)" />
+    
+    <Message Importance="High" Text="📦 [Obfuscar] Copying obfuscated assemblies back to '$(TargetDir)'..." />
+    <ItemGroup>
+      <ObfuscatedFiles Include="$(TargetDir)Obfuscated\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ObfuscatedFiles)" DestinationFolder="$(TargetDir)" OverwriteReadOnlyFiles="true" />
+    
+    <Message Importance="High" Text="🔒 [Integrity] Generating assembly integrity.dat..." />
+    <GenerateIntegrityFile TargetDirectory="$(TargetDir)" ProjectDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+
+  <Target Name="CopyIntegrityToPublish" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <Message Importance="High" Text="📦 [Integrity] Copying integrity.dat to publish directory: '$(PublishDir)'..." />
+    <Copy SourceFiles="$(TargetDir)integrity.dat" DestinationFolder="$(PublishDir)" Condition="Exists('$(TargetDir)integrity.dat')" OverwriteReadOnlyFiles="true" />
+  </Target>
 
 </Project>

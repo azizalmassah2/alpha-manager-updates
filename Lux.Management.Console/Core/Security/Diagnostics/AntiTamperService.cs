@@ -156,6 +156,98 @@ public class AntiTamperService : IAntiTamperService
                     }
                 }
             }
+
+#if !DEBUG
+            if (!VerifyAssemblyHashes())
+            {
+                return false;
+            }
+#endif
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool VerifyAssemblyHashes()
+    {
+        try
+        {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string integrityPath = Path.Combine(baseDir, "integrity.dat");
+            if (!File.Exists(integrityPath))
+            {
+                return false;
+            }
+
+            byte[] cipherBytes = File.ReadAllBytes(integrityPath);
+
+            byte[] keyBytes = new byte[32];
+            byte[] ivBytes = new byte[16];
+            byte[] rawKeySource = System.Text.Encoding.UTF8.GetBytes("AlphaManagerSecureAssemblyIntegrityKey2026");
+            Array.Copy(rawKeySource, keyBytes, Math.Min(rawKeySource.Length, 32));
+            Array.Copy(rawKeySource, ivBytes, Math.Min(rawKeySource.Length, 16));
+
+            byte[] plainBytes;
+            using (var aes = System.Security.Cryptography.Aes.Create())
+            {
+                aes.Key = keyBytes;
+                aes.IV = ivBytes;
+                using (var msInput = new MemoryStream(cipherBytes))
+                using (var msOutput = new MemoryStream())
+                {
+                    using (var cs = new System.Security.Cryptography.CryptoStream(msInput, aes.CreateDecryptor(), System.Security.Cryptography.CryptoStreamMode.Read))
+                    {
+                        cs.CopyTo(msOutput);
+                    }
+                    plainBytes = msOutput.ToArray();
+                }
+            }
+
+            string decryptedText = System.Text.Encoding.UTF8.GetString(plainBytes).Trim();
+            if (string.IsNullOrEmpty(decryptedText))
+            {
+                return false;
+            }
+
+            var lines = decryptedText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
+            {
+                var parts = line.Split(':');
+                if (parts.Length != 2) return false;
+
+                string filename = parts[0].Trim();
+                string expectedHash = parts[1].Trim().ToLower();
+
+                string filePath = Path.Combine(baseDir, filename);
+                if (!File.Exists(filePath))
+                {
+                    return false;
+                }
+
+                byte[] fileBytes = File.ReadAllBytes(filePath);
+                byte[] computedHashBytes;
+                using (var sha = System.Security.Cryptography.SHA256.Create())
+                {
+                    computedHashBytes = sha.ComputeHash(fileBytes);
+                }
+
+                var sb = new System.Text.StringBuilder();
+                foreach (byte b in computedHashBytes)
+                {
+                    sb.Append(b.ToString("x2"));
+                }
+                string actualHash = sb.ToString();
+
+                if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+            }
+
             return true;
         }
         catch
