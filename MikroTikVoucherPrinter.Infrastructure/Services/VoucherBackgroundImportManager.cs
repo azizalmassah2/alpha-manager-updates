@@ -1259,12 +1259,12 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
             }
         }
 
-        private static void FtpDownload(string ftpUrl, string localPath, string user, string pass)
+        private static void FtpDownload(string ftpUrl, string localPath, string user, string pass, int timeoutMs = 5000)
         {
             var req = (FtpWebRequest)WebRequest.Create(ftpUrl);
             req.Method = WebRequestMethods.Ftp.DownloadFile;
             req.Credentials = new NetworkCredential(user, pass);
-            req.UsePassive = true; req.UseBinary = true; req.KeepAlive = false; req.Timeout = 30000;
+            req.UsePassive = true; req.UseBinary = true; req.KeepAlive = false; req.Timeout = timeoutMs;
 
             using var resp = (FtpWebResponse)req.GetResponse();
             using var stream = resp.GetResponseStream();
@@ -1272,11 +1272,11 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
             stream.CopyTo(file);
         }
 
-        private static void FtpDownloadOptional(string ftpUrl, string localPath, string user, string pass)
+        private static void FtpDownloadOptional(string ftpUrl, string localPath, string user, string pass, int timeoutMs = 3000)
         {
             try 
             { 
-                FtpDownload(ftpUrl, localPath, user, pass); 
+                FtpDownload(ftpUrl, localPath, user, pass, timeoutMs); 
             }
             catch (Exception)
             {
@@ -1990,55 +1990,40 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                 "disk1/userman1/sqldb"
             };
 
-            var found = new List<(string path, int userCount)>();
+            var found = new List<(string path, long size)>();
 
             foreach (var path in candidates)
             {
-                var tempPath = Path.Combine(Path.GetTempPath(), $"probe_sqldb_{Guid.NewGuid()}");
                 try
                 {
                     _logger.LogInformation("🔄 [FindUserManagerDbPath] Probing candidate path: ftp://{Host}/{Path} ...", host, path);
-                    FtpDownload($"ftp://{host}/{path}", tempPath, user, pass);
-                    if (File.Exists(tempPath))
+                    var size = GetFtpFileSize($"ftp://{host}/{path}", user, pass);
+                    if (size > 1024)
                     {
-                        using (var conn = new SqliteConnection($"Data Source={tempPath}"))
-                        {
-                            conn.Open();
-                            using var cmd = conn.CreateCommand();
-                            cmd.CommandText = "SELECT COUNT(*) FROM [user];";
-                            var count = Convert.ToInt32(cmd.ExecuteScalar());
-                            _logger.LogInformation("✅ [FindUserManagerDbPath] Candidate {Path} downloaded successfully. User count: {Count}", path, count);
-                            found.Add((path, count));
-                        }
-                        SqliteConnection.ClearAllPools();
+                        _logger.LogInformation("✅ [FindUserManagerDbPath] Candidate {Path} exists with size {Size} bytes.", path, size);
+                        found.Add((path, size));
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug("❌ [FindUserManagerDbPath] Candidate {Path} skipped: {Message}", path, ex.Message);
-                }
-                finally
-                {
-                    try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch {}
+                    _logger.LogDebug("❌ [FindUserManagerDbPath] Candidate {Path} probe failed: {Message}", path, ex.Message);
                 }
             }
 
             if (found.Count > 0)
             {
-                // Prefer the database with the most users
-                var best = found.OrderByDescending(x => x.userCount).First();
-                _logger.LogInformation("🎯 [FindUserManagerDbPath] Selected database path: {Path} with {Count} users.", best.path, best.userCount);
+                var best = found.OrderByDescending(x => x.size).First();
+                _logger.LogInformation("🎯 [FindUserManagerDbPath] Selected database path: {Path} with size {Size} bytes.", best.path, best.size);
                 return best.path;
             }
 
-            _logger.LogWarning("⚠️ [FindUserManagerDbPath] No candidate paths succeeded or contained tables. Falling back to dynamic scanning...");
+            _logger.LogWarning("⚠️ [FindUserManagerDbPath] No candidate paths succeeded. Falling back to dynamic scanning...");
 
             var foundDatabases = new List<(string path, long size)>();
             ScanDirectory($"ftp://{host}/", "", user, pass, foundDatabases);
             
             if (foundDatabases.Count == 0) return null;
             
-            // Sort by file size descending to pick the largest sqldb (which is the active user-manager database)
             return foundDatabases.OrderByDescending(db => db.size).First().path;
         }
 
