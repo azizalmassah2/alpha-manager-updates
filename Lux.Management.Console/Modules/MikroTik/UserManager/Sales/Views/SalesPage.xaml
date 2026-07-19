@@ -354,10 +354,10 @@
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
                                                     <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding State}" Value="1">
+                                                        <DataTrigger Binding="{Binding EffectiveState}" Value="1">
                                                             <Setter Property="Foreground" Value="#FF1E88E5"/>
                                                         </DataTrigger>
-                                                        <DataTrigger Binding="{Binding State}" Value="2">
+                                                        <DataTrigger Binding="{Binding EffectiveState}" Value="2">
                                                             <Setter Property="Foreground" Value="#FFEF4444"/>
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding IsPaused}" Value="True">

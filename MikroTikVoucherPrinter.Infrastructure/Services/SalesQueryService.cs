@@ -140,7 +140,11 @@ public class SalesQueryService : ISalesQueryService
                     u.uptimeUsed,
                     u.downloadUsed,
                     u.uploadUsed,
-                    CAST(pr.name AS TEXT)       AS profileName
+                    CAST(pr.name AS TEXT)       AS profileName,
+                    u.uptimeLimit,
+                    u.downloadLimit,
+                    u.uploadLimit,
+                    u.transferLimit
                 FROM userprofile up
                 JOIN user u ON u.id = up.userId
                 LEFT JOIN profile pr ON pr.id = up.profileId
@@ -314,6 +318,10 @@ public class SalesQueryService : ISalesQueryService
             DownloadUsedBytes= r.IsDBNull(8) ? 0L : r.GetInt64(8),
             UploadUsedBytes  = r.IsDBNull(9) ? 0L : r.GetInt64(9),
             ProfileName      = r.IsDBNull(10)? "—": r.GetString(10),
+            UptimeLimit      = r.FieldCount > 11 && !r.IsDBNull(11) ? r.GetInt64(11) : 0L,
+            DownloadLimit    = r.FieldCount > 12 && !r.IsDBNull(12) ? r.GetInt64(12) : 0L,
+            UploadLimit      = r.FieldCount > 13 && !r.IsDBNull(13) ? r.GetInt64(13) : 0L,
+            TransferLimit    = r.FieldCount > 14 && !r.IsDBNull(14) ? r.GetInt64(14) : 0L,
         };
     }
 

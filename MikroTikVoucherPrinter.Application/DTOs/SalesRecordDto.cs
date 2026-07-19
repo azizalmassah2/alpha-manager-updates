@@ -35,7 +35,33 @@ public class SalesRecordDto
     /// <summary>userprofile.paused</summary>
     public bool IsPaused { get; set; }
 
-    public string StatusText => IsPaused ? "موقوف" : State switch
+    public long UptimeLimit { get; set; }
+    public long DownloadLimit { get; set; }
+    public long UploadLimit { get; set; }
+    public long TransferLimit { get; set; }
+
+    public bool IsQuotaConsumed
+    {
+        get
+        {
+            bool hasLimits = UptimeLimit > 0 || TransferLimit > 0 || DownloadLimit > 0 || UploadLimit > 0;
+            if (!hasLimits)
+            {
+                return true; 
+            }
+            
+            if (UptimeLimit > 0 && UptimeUsedSeconds >= UptimeLimit) return true;
+            if (TransferLimit > 0 && (DownloadUsedBytes + UploadUsedBytes) >= TransferLimit) return true;
+            if (DownloadLimit > 0 && DownloadUsedBytes >= DownloadLimit) return true;
+            if (UploadLimit > 0 && UploadUsedBytes >= UploadLimit) return true;
+            
+            return false;
+        }
+    }
+
+    public int EffectiveState => State == 2 && !IsQuotaConsumed ? 1 : State;
+
+    public string StatusText => IsPaused ? "موقوف" : EffectiveState switch
     {
         0 => "جديد",
         1 => "نشط",
