@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "lastUpdated": "2026-07-19T01:57:00Z",
+  "generatedBy": "Alpha Manager Build System",
+  "appName": "Alpha Manager",
+  "website": "https://alphamanager.app",
+  "supportEmail": "support@alphamanager.app",
+  "githubRepository": "https://github.com/azizalmassah2/alpha-manager-updates",
+  "githubReleases": "https://github.com/azizalmassah2/alpha-manager-updates/releases",
+  "privacyUrl": "/privacy",
+  "termsUrl": "/terms",
+  "copyright": "© 2026 Alpha Manager. All Rights Reserved.",
+  "defaultLanguage": "ar",
+  "theme": "dark"
+}
