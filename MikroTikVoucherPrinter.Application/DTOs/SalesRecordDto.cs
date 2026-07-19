@@ -47,7 +47,7 @@ public class SalesRecordDto
             bool hasLimits = UptimeLimit > 0 || TransferLimit > 0 || DownloadLimit > 0 || UploadLimit > 0;
             if (!hasLimits)
             {
-                return true; 
+                return false; 
             }
             
             if (UptimeLimit > 0 && UptimeUsedSeconds >= UptimeLimit) return true;
@@ -59,15 +59,9 @@ public class SalesRecordDto
         }
     }
 
-    public int EffectiveState => State == 2 && !IsQuotaConsumed ? 1 : State;
+    public int EffectiveState => IsQuotaConsumed ? 2 : 1;
 
-    public string StatusText => IsPaused ? "موقوف" : EffectiveState switch
-    {
-        0 => "جديد",
-        1 => "نشط",
-        2 => "منتهي",
-        _ => "—"
-    };
+    public string StatusText => IsQuotaConsumed ? "منتهي" : "مستخدم";
 
     // ── آخر ظهور ──────────────────────────────────────────────
     /// <summary>user.lastSeenAt (Unix timestamp)</summary>

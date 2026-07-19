@@ -127,7 +127,6 @@ public class SalesQueryService : ISalesQueryService
 
             totalCount = Convert.ToInt32(countCmd.ExecuteScalar());
 
-            // ── 3. الاستعلام الرئيسي مع LIMIT ──────────────────────────
             cmd.CommandText = $@"
                 SELECT 
                     up.id,
@@ -141,14 +140,17 @@ public class SalesQueryService : ISalesQueryService
                     u.downloadUsed,
                     u.uploadUsed,
                     CAST(pr.name AS TEXT)       AS profileName,
-                    u.uptimeLimit,
-                    u.downloadLimit,
-                    u.uploadLimit,
-                    u.transferLimit
+                    MAX(COALESCE(lim.uptimeLimit, 0))   AS uptimeLimit,
+                    MAX(COALESCE(lim.downloadLimit, 0)) AS downloadLimit,
+                    MAX(COALESCE(lim.uploadLimit, 0))   AS uploadLimit,
+                    MAX(COALESCE(lim.transferLimit, 0)) AS transferLimit
                 FROM userprofile up
                 JOIN user u ON u.id = up.userId
                 LEFT JOIN profile pr ON pr.id = up.profileId
+                LEFT JOIN pparts pp ON pp.profileId = pr.id
+                LEFT JOIN limitation lim ON lim.id = pp.limitId
                 WHERE {where}
+                GROUP BY up.id
                 ORDER BY up.activated DESC, up.id DESC
                 LIMIT @limit";
 
