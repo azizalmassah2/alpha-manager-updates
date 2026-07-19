@@ -1,28 +1,27 @@
 {
   "schemaVersion": 1,
-  "lastUpdated": "2026-07-19T01:57:00Z",
+  "lastUpdated": "2026-07-19T06:57:00Z",
   "generatedBy": "Alpha Manager Build System",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "updateType": "mandatory",
   "mandatory": true,
-  "minimumSupportedVersion": "2.0.2",
-  "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.2/AlphaManagerSetup_v2.0.2.exe",
-  "sha256": "02827b7f2406fa56410aa6a2a9614dd4402bea77e83f95ef1d13b70d5aed2b30",
-  "fileSize": 24767511,
+  "minimumSupportedVersion": "2.0.3",
+  "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.3/AlphaManagerSetup_v2.0.3.exe",
+  "sha256": "f5d20094d037659008434305a944a2f32165f4a0b2cd3c3fb34d437bbee7d4bc",
+  "fileSize": 60530612,
   "releaseDate": "2026-07-19",
   "releaseNotes": [
-    "حل مشكلة تطابق مخطط قاعدة البيانات (database schema mismatch) عند التحديث من نسخ سابقة لتجنب خطأ SQLite عند الإقلاع.",
-    "إدراج المعاينة الآمنة المدمجة بالذاكرة لحماية وتأمين قوالب صفحات الـ Hotspot من السرقة.",
-    "إتاحة ميزة الترخيص الذاتي والمحمول على الراوتر (license/license.dat) للمزامنة والعمل التلقائي من أي جهاز.",
-    "مزامنة وتحميل إعدادات الـ Hotspot المرفوعة مسبقاً على الراوتر (config.js) تلقائياً عند فتح الشاشة.",
-    "تحديث الشعار الرسمي للبرنامج في صفحة حول البرنامج الشعار الجديد logo2.png."
+    "تشفير وتشويش وحماية التطبيق بالكامل (Obfuscation) لمنع محاولات الهندسة العكسية.",
+    "فحص سلامة ملفات النظام (DLLs) وتوقيعها رقمياً باستخدام خوارزمية RSA-2048 لمنع التلاعب البرمجي.",
+    "تعطيل توليد ملفات رموز التصحيح PDB لزيادة أمان التوزيع للإنتاج.",
+    "تأمين إدارة دورة حياة التطبيق ومعالجة الاستثناءات أثناء الإغلاق الطارئ لمنع جمود الواجهة."
   ],
-  "message": "تحديث إصلاحي هام 2.0.2! يحل مشكلة قاعدة البيانات لجميع المستخدمين الذين لديهم نسخ سابقة، بالإضافة للميزات الجديدة.",
+  "message": "تحديث حماية وتأمين v2.0.3! تحصين كامل للتطبيق ضد التلاعب والهندسة العكسية مع تفعيل التحقق الرقمي RSA.",
   "enabled": true,
   "extendedInfo": {
     "productName": "Alpha Manager",
     "officialName": "Alpha Manager for MikroTik Hotspot",
-    "buildNumber": 202,
+    "buildNumber": 203,
     "channel": "Stable",
     "publisherName": "Alpha Manager Team",
     "company": "LUXCARD",
@@ -42,24 +41,24 @@
       "English"
     ],
     "digitalSignatureStatus": "Self-Signed / Verified Checksum",
-    "buildTimestamp": "2026-07-19T01:19:00Z",
-    "category": "Hotfix",
+    "buildTimestamp": "2026-07-19T06:57:00Z",
+    "category": "Security Update",
     "licenseType": "Commercial / Node-Locked to Router",
     "documentationUrl": "https://docs.alphamanager.app"
   },
   "structuredReleaseNotes": {
     "additions": [
-      "إتاحة ميزة الترخيص الذاتي والمحمول على الراوتر (license/license.dat) للمزامنة والعمل التلقائي من أي جهاز.",
-      "مزامنة وتحميل إعدادات الـ Hotspot المرفوعة مسبقاً على الراوتر (config.js) تلقائياً عند فتح شاشة التعديل."
+      "فحص سلامة ملفات النظام وتوقيعها رقمياً باستخدام خوارزمية RSA-2048 لمنع التلاعب البرمجي."
     ],
     "improvements": [
-      "إدراج المعاينة الآمنة المدمجة بالذاكرة لحماية وتأمين قوالب صفحات الـ Hotspot من السرقة والنسخ."
+      "تشفير وتشويش وحماية التطبيق بالكامل (Obfuscation) لمنع محاولات الهندسة العكسية.",
+      "تعطيل توليد ملفات رموز التصحيح PDB لزيادة أمان التوزيع للإنتاج."
     ],
     "fixes": [
-      "حل مشكلة تطابق مخطط قاعدة البيانات (database schema mismatch) عند الترقية من نسخ سابقة لتجنب خطأ SQLite عند الإقلاع."
+      "تأمين إدارة دورة حياة التطبيق ومعالجة الاستثناءات أثناء الإغلاق الطارئ لمنع جمود الواجهة."
     ],
     "security": [
-      "حماية وتأمين المعاينة من خلال تضمين القالب بالذاكرة بدلاً من استخراجه كملف مؤقت مكشوف."
+      "حماية وتأمين الكود البرمجي وعزل مفاتيح التعمية والتشفير وتوثيق العمليات."
     ],
     "breakingChanges": [],
     "knownIssues": []
