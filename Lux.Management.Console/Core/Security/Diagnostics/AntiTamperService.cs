@@ -183,37 +183,40 @@ public class AntiTamperService : IAntiTamperService
                 return false;
             }
 
-            byte[] cipherBytes = File.ReadAllBytes(integrityPath);
-
-            byte[] keyBytes = new byte[32];
-            byte[] ivBytes = new byte[16];
-            byte[] rawKeySource = System.Text.Encoding.UTF8.GetBytes("AlphaManagerSecureAssemblyIntegrityKey2026");
-            Array.Copy(rawKeySource, keyBytes, Math.Min(rawKeySource.Length, 32));
-            Array.Copy(rawKeySource, ivBytes, Math.Min(rawKeySource.Length, 16));
-
-            byte[] plainBytes;
-            using (var aes = System.Security.Cryptography.Aes.Create())
-            {
-                aes.Key = keyBytes;
-                aes.IV = ivBytes;
-                using (var msInput = new MemoryStream(cipherBytes))
-                using (var msOutput = new MemoryStream())
-                {
-                    using (var cs = new System.Security.Cryptography.CryptoStream(msInput, aes.CreateDecryptor(), System.Security.Cryptography.CryptoStreamMode.Read))
-                    {
-                        cs.CopyTo(msOutput);
-                    }
-                    plainBytes = msOutput.ToArray();
-                }
-            }
-
-            string decryptedText = System.Text.Encoding.UTF8.GetString(plainBytes).Trim();
-            if (string.IsNullOrEmpty(decryptedText))
+            string integrityContent = File.ReadAllText(integrityPath, System.Text.Encoding.UTF8).Trim();
+            if (string.IsNullOrEmpty(integrityContent))
             {
                 return false;
             }
 
-            var lines = decryptedText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            int firstNewLine = integrityContent.IndexOf('\n');
+            if (firstNewLine == -1) return false;
+
+            string signatureBase64 = integrityContent.Substring(0, firstNewLine).Trim();
+            string manifestPayload = integrityContent.Substring(firstNewLine + 1).Trim();
+
+            byte[] signatureBytes = Convert.FromBase64String(signatureBase64);
+            byte[] manifestBytes = System.Text.Encoding.UTF8.GetBytes(manifestPayload);
+
+            // RSA Public Key (Asymmetric - Private key is NOT present in the app binary)
+            string publicKeyXml = @"<RSAKeyValue><Modulus>xkkNx30OH+KZ5bqHqHqnCdpBosNM2p4yw06hQPVU2IasBvt34nEQCcbtzdma71iy9ZsLWIk6W9ONbf/7NlEY79YB9dHz2PXC10X8hnoDgyL5+1UuwP7aHYsXC4AtnqOSrPtTl3oERWQAe9canIE2/R5V/j2Cvd/HSWPRZlt+Ca57eOxTss/H8PGCzVH1mtNqSXyoOHp87IVpR5Ic42eF6cjinKVzmcxBXzgPrBxlzqVPqrtoiQA/HndIMgWotDNDNzJYSjCNncf/Z91i3GG2BSJ6az3tja06D7HJI8WIGJENiy0/IHuJ+r1T9QH0iojNeT+wB9U0VcZc77Hl0sB+ZQ==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
+
+            using (var rsa = System.Security.Cryptography.RSA.Create())
+            {
+                rsa.FromXmlString(publicKeyXml);
+                bool isSignatureValid = rsa.VerifyData(
+                    manifestBytes,
+                    signatureBytes,
+                    System.Security.Cryptography.HashAlgorithmName.SHA256,
+                    System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+
+                if (!isSignatureValid)
+                {
+                    return false;
+                }
+            }
+
+            var lines = manifestPayload.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var line in lines)
             {
                 var parts = line.Split(':');

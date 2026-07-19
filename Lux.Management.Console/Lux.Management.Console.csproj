@@ -96,33 +96,24 @@
               Log.LogMessage(MessageImportance.High, "Integrity Hash for " + file + " = " + hashString.ToString());
           }
           
-          byte[] plainBytes = Encoding.UTF8.GetBytes(sb.ToString().Trim());
+          string manifestPayload = sb.ToString().Trim();
+          byte[] manifestBytes = Encoding.UTF8.GetBytes(manifestPayload);
           
-          byte[] keyBytes = new byte[32];
-          byte[] ivBytes = new byte[16];
-          byte[] rawKeySource = Encoding.UTF8.GetBytes("AlphaManagerSecureAssemblyIntegrityKey2026");
-          Array.Copy(rawKeySource, keyBytes, Math.Min(rawKeySource.Length, 32));
-          Array.Copy(rawKeySource, ivBytes, Math.Min(rawKeySource.Length, 16));
+          string privateKeyXml = @"<RSAKeyValue><Modulus>xkkNx30OH+KZ5bqHqHqnCdpBosNM2p4yw06hQPVU2IasBvt34nEQCcbtzdma71iy9ZsLWIk6W9ONbf/7NlEY79YB9dHz2PXC10X8hnoDgyL5+1UuwP7aHYsXC4AtnqOSrPtTl3oERWQAe9canIE2/R5V/j2Cvd/HSWPRZlt+Ca57eOxTss/H8PGCzVH1mtNqSXyoOHp87IVpR5Ic42eF6cjinKVzmcxBXzgPrBxlzqVPqrtoiQA/HndIMgWotDNDNzJYSjCNncf/Z91i3GG2BSJ6az3tja06D7HJI8WIGJENiy0/IHuJ+r1T9QH0iojNeT+wB9U0VcZc77Hl0sB+ZQ==</Modulus><Exponent>AQAB</Exponent><P>+LTWOKI0V9Zv+W62914LOJMAxaXMeYySWEP+HXeC78UQfucuhYJoidojXL2TFllZgAAqcgRE/psroJZW/BDsgL5LclP37EF/Y41Grop+bh0EeleAIHyrNEqSHQSfjox13oLIl+jJaW+WLIRFMMky7BhL74oIP43COJ+8LXAnk3M=</P><Q>zBmuYUxRjEB0EB+c+XGf9n91nqEFaRQ9YeGyKkZjAbSP+EBMP1aB/pqTe223WDMZNloMpQ8Uj0XBO31IezHC2jqPHS0xNJCtA3EV9acPuCTSUt5Jj0u37ZLsgWz9J8/UvApg2i74verqB3HIrmjIXQcnpzhX/cNfM/WwK5WXoMc=</Q><DP>JxZkxKnZiCSPnKgl4WLKaK3R5T5VkJTjOzQUcBUkYwKZwRgcW6dPPrsl66FvyIdqZY+hHCJHpaxFgwudyCfww5skyGciA+OXXdIKVcw2ap/s4D14SaLOVX2S0TS0zvaMX9g2JonTfdqnw39WUICOnESFSrRq73IcIEIalRmXXrk=</DP><DQ>iS5Fr64NLZhwqhmld19wpcxbsQgHS+5Hp498Ib/3ccD79164IOYzL36T3CUNU2Hc81QpJZPyPK4kx6hYXD1A+07avECQzwTi1OpgWSE1ho5xMzOm+4JoGG1lO0SXDvg4wz6yhFOH6paHQAOxX9CbwzM46sMLGUwEpDbhdxnvtSc=</DQ><InverseQ>wlxp1NTF9hjia2pwVKVOyyVHkzCfV84q64yI3uDEYQZoulfp3wLJd+a5Ox0Ifm+03C6CJmPg+VVNrHNUdL3jPauNU14txdc8zLChKWKgSN0G8yLDnAY3SWuv0vvo1lmf13oCfqDvZEh/342mQwnuDEg2WJ5az5g+onIdab3ikXc=</InverseQ><D>GA5e5Jfwcb/dKfjiYndW8qQPGH8XQOK2h+lvOOFKxOY50rMJjWhoKLeAvFutJ2Kce52u17P2Z5OX8gN/Z8yY+Of+3uL08ZqHY/SyuWHuMSe6KlrgTDvfHHx2dEe9wSRZNDFdp9/+yqhiQqQLL3ehwz298xVlWkHe/LFmg0OQW/4fPzdMW1sXkKnXzuOkkz0zSe6xqYzqA0tsjvDGGkHJT34n41QlVXNNKu44XKGcnORko1caRurNUAkOKvX9A6ecMowV6QXElkMvT4V2HGWEaI4y2mxa3ieqHdUFVg4LvArUAqtVYbyUEZq42gak3FR2/Sn82udg3KhiHKGZfnmslQ==</D></RSAKeyValue>";
           
-          byte[] cipherBytes;
-          using (Aes aes = Aes.Create())
+          byte[] signatureBytes;
+          using (RSA rsa = RSA.Create())
           {
-              aes.Key = keyBytes;
-              aes.IV = ivBytes;
-              using (MemoryStream ms = new MemoryStream())
-              {
-                  using (CryptoStream cs = new CryptoStream(ms, aes.CreateEncryptor(), CryptoStreamMode.Write))
-                  {
-                      cs.Write(plainBytes, 0, plainBytes.Length);
-                      cs.FlushFinalBlock();
-                  }
-                  cipherBytes = ms.ToArray();
-              }
+              rsa.FromXmlString(privateKeyXml);
+              signatureBytes = rsa.SignData(manifestBytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
           }
           
+          string signatureBase64 = Convert.ToBase64String(signatureBytes);
+          string outputContent = signatureBase64 + "\n" + manifestPayload;
+          
           string outputPath = Path.Combine(TargetDirectory, "integrity.dat");
-          File.WriteAllBytes(outputPath, cipherBytes);
-          Log.LogMessage(MessageImportance.High, "🔒 [Integrity] Generated signed integrity.dat at: " + outputPath);
+          File.WriteAllText(outputPath, outputContent, Encoding.UTF8);
+          Log.LogMessage(MessageImportance.High, "🔒 [Integrity] Generated digitally signed integrity.dat at: " + outputPath);
         ]]>
       </Code>
     </Task>
