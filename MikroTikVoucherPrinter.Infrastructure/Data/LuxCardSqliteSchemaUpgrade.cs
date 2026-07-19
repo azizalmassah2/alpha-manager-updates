@@ -11,7 +11,7 @@ namespace MikroTikVoucherPrinter.Infrastructure.Data;
 /// </summary>
 public static class LuxCardSqliteSchemaUpgrade
 {
-    private const int CurrentSchemaVersion = 12;
+    private const int CurrentSchemaVersion = 13;
 
     public static async Task ApplyAsync(LuxCardDbContext db, ILogger logger, CancellationToken cancellationToken = default)
     {
@@ -67,6 +67,15 @@ public static class LuxCardSqliteSchemaUpgrade
             if (applied < 12)
             {
                 await EnsureVoucherColumnsAsync(conn, logger, cancellationToken);
+            }
+
+            // v13 — Add RouterId to Vouchers, Batches, Profiles and Agents for backward compatibility of existing databases
+            if (applied < 13)
+            {
+                await EnsureVoucherColumnsAsync(conn, logger, cancellationToken);
+                await EnsureProfileColumnsAsync(conn, logger, cancellationToken);
+                await EnsureBatchColumnsAsync(conn, logger, cancellationToken);
+                await EnsureAgentColumnsAsync(conn, logger, cancellationToken);
             }
 
             await InsertVersionRowAsync(conn, CurrentSchemaVersion, cancellationToken);
@@ -240,6 +249,7 @@ public static class LuxCardSqliteSchemaUpgrade
         var cols = await GetColumnNamesForAnyTableAsync(conn, "Profiles", ct);
         await TryAddColumnAsync(conn, cols, "Profiles", "TemplateId", "TEXT NULL", logger, ct);
         await TryAddColumnAsync(conn, cols, "Profiles", "MikroTikProfileId", "TEXT NULL", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Profiles", "RouterId", "TEXT NOT NULL DEFAULT ''", logger, ct);
     }
 
     private static async Task EnsureTemplateConfigColumnsAsync(DbConnection conn, ILogger logger, CancellationToken ct)
@@ -441,7 +451,8 @@ public static class LuxCardSqliteSchemaUpgrade
                 "CreatedAt" TEXT NOT NULL,
                 "UpdatedAt" TEXT NULL,
                 "IsDeleted" INTEGER NOT NULL,
-                "RowVersion" BLOB NULL
+                "RowVersion" BLOB NULL,
+                "RouterId" TEXT NOT NULL DEFAULT ''
             );
             """;
         await cmd.ExecuteNonQueryAsync(ct);
@@ -457,6 +468,24 @@ public static class LuxCardSqliteSchemaUpgrade
                 await alterCmd.ExecuteNonQueryAsync(ct);
             }
         }
+    }
+
+    private static async Task EnsureAgentColumnsAsync(DbConnection conn, ILogger logger, CancellationToken ct)
+    {
+        if (!await TableExistsAsync(conn, "Agents", ct))
+            return;
+
+        var cols = await GetColumnNamesForAnyTableAsync(conn, "Agents", ct);
+        await TryAddColumnAsync(conn, cols, "Agents", "RouterId", "TEXT NOT NULL DEFAULT ''", logger, ct);
+    }
+
+    private static async Task EnsureBatchColumnsAsync(DbConnection conn, ILogger logger, CancellationToken ct)
+    {
+        if (!await TableExistsAsync(conn, "Batches", ct))
+            return;
+
+        var cols = await GetColumnNamesForAnyTableAsync(conn, "Batches", ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "RouterId", "TEXT NOT NULL DEFAULT ''", logger, ct);
     }
 
     private static async Task<HashSet<string>> GetColumnNamesForAnyTableAsync(DbConnection conn, string table, CancellationToken ct)
@@ -570,6 +599,7 @@ public static class LuxCardSqliteSchemaUpgrade
         await TryAddColumnAsync(conn, cols, "Vouchers", "DeletedSource", "INTEGER NULL", logger, ct);
         await TryAddColumnAsync(conn, cols, "Vouchers", "DownloadUsedBytes", "INTEGER NOT NULL DEFAULT 0", logger, ct);
         await TryAddColumnAsync(conn, cols, "Vouchers", "UploadUsedBytes", "INTEGER NOT NULL DEFAULT 0", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Vouchers", "RouterId", "TEXT NOT NULL DEFAULT ''", logger, ct);
     }
 
     private static async Task EnsurePrintJobEventsTableAsync(DbConnection conn, CancellationToken ct)

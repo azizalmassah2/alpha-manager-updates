@@ -246,7 +246,6 @@
                         <ColumnDefinition Width="Auto"/> <!-- Status Filter -->
                         <ColumnDefinition Width="Auto"/> <!-- Package Filter -->
                         <ColumnDefinition Width="Auto"/> <!-- Agent Filter -->
-                        <ColumnDefinition Width="Auto"/> <!-- Reset Button -->
                     </Grid.ColumnDefinitions>
                     
                     <!-- 1. Search Box (With Native CheckBox Style) -->
@@ -287,14 +286,6 @@
                                   VerticalContentAlignment="Center"/>
                     </StackPanel>
 
-                    <!-- 5. Reset Filter Button -->
-                    <Button Grid.Column="4" 
-                            Content="إعادة تعيين ↻" 
-                            Command="{Binding ClearFilterCommand}" 
-                            Style="{DynamicResource ButtonDefault}" 
-                            Height="32" Padding="12,0" 
-                            FontWeight="SemiBold"
-                            VerticalAlignment="Center"/>
                 </Grid>
             </Border>
 
