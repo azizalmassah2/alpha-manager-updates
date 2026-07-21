@@ -69,28 +69,64 @@
                             </Style.Triggers>
                         </Style>
                     </Grid.Style>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="1.1*"/>
+                        <ColumnDefinition Width="0.9*"/>
                     </Grid.ColumnDefinitions>
-                    
-                    <!-- 1. Router Information Card (Row 0, Col 0) -->
-                    <Border Grid.Row="0" Grid.Column="0" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="20" Margin="0,0,12,16" VerticalAlignment="Stretch">
+
+                    <!-- 1. Right Column: بيانات المايكروتيك (Merged Router Info & Hardware ID) -->
+                    <Border Grid.Column="0" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="16" Margin="0,0,8,0" VerticalAlignment="Top">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
+
+                            <!-- Title -->
+                            <TextBlock Grid.Row="0" Text="بيانات المايكروتيك" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,0,8"/>
+                            <Border Grid.Row="1" Height="1" Background="{DynamicResource BorderBrush}" Opacity="0.5" Margin="0,0,0,12"/>
+
+                            <!-- Section: بصمة الجهاز -->
+                            <StackPanel Grid.Row="2" Margin="0,0,0,12">
+                                <TextBlock Text="بصمة الراوتر الفريدة (Hardware ID):" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,6"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Grid.Column="0" 
+                                             Text="{Binding FormattedHardwareId, Mode=OneWay}" 
+                                             IsReadOnly="True" 
+                                             Background="{DynamicResource SurfaceAltBrush}" 
+                                             BorderBrush="{DynamicResource BorderBrush}" 
+                                             Padding="10,0" 
+                                             FontFamily="Consolas" 
+                                             FontSize="12.5" 
+                                             FontWeight="Bold" 
+                                             Foreground="{DynamicResource SuccessBrush}" 
+                                             VerticalContentAlignment="Center" 
+                                             Height="36"/>
+                                    <Button Grid.Column="1" 
+                                            Content="نسخ البصمة 📋" 
+                                            Command="{Binding CopyHwidCommand}" 
+                                            Margin="8,0,0,0" 
+                                            Padding="14,0" 
+                                            Height="36" 
+                                            Style="{DynamicResource OutlineButtonStyle}"
+                                            Cursor="Hand"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <Border Grid.Row="3" Height="1" Background="{DynamicResource BorderBrush}" Opacity="0.3" Margin="0,4,0,12"/>
+
+                            <!-- Section: معلومات الجهاز -->
+                            <TextBlock Grid.Row="4" Text="تفاصيل نظام المايكروتيك:" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,0,10"/>
                             
-                            <TextBlock Grid.Row="0" Text="معلومات الراوتر" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,0,10"/>
-                            <Border Grid.Row="1" Height="1" Background="{DynamicResource BorderBrush}" Opacity="0.5" Margin="0,0,0,16"/>
-                            
-                            <Grid Grid.Row="2">
+                            <Grid Grid.Row="5">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
@@ -103,17 +139,17 @@
                                 </Grid.ColumnDefinitions>
 
                                 <!-- Row 0: Name & IP -->
-                                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,12">
+                                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,10">
                                     <TextBlock Text="اسم الجهاز" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
                                     <TextBlock Text="{Binding RouterName}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0"/>
                                 </StackPanel>
-                                <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,12">
+                                <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,10">
                                     <TextBlock Text="عنوان IP" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
                                     <TextBlock Text="{Binding RouterIp}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0"/>
                                 </StackPanel>
 
                                 <!-- Row 1: Status & Version -->
-                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,12">
+                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,10">
                                     <TextBlock Text="حالة الاتصال" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,2"/>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <Ellipse Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center">
@@ -144,17 +180,17 @@
                                         </TextBlock>
                                     </StackPanel>
                                 </StackPanel>
-                                <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,12">
+                                <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,10">
                                     <TextBlock Text="إصدار RouterOS" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
                                     <TextBlock Text="{Binding RouterVersion}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0"/>
                                 </StackPanel>
 
                                 <!-- Row 2: Model & Architecture -->
-                                <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,12">
+                                <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,10">
                                     <TextBlock Text="الموديل" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
                                     <TextBlock Text="{Binding RouterModel}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0"/>
                                 </StackPanel>
-                                <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,0,0,12">
+                                <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,0,0,10">
                                     <TextBlock Text="المعمارية" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
                                     <TextBlock Text="{Binding RouterArchitecture}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0"/>
                                 </StackPanel>
@@ -167,262 +203,194 @@
                             </Grid>
                         </Grid>
                     </Border>
-                    
-                    <!-- 2. Hardware ID Card (Row 0, Col 1) -->
-                    <Border Grid.Row="0" Grid.Column="1" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="20" Margin="12,0,0,16" VerticalAlignment="Stretch">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-                            
-                            <TextBlock Grid.Row="0" Text="بصمة الجهاز" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,0,10"/>
-                            <Border Grid.Row="1" Height="1" Background="{DynamicResource BorderBrush}" Opacity="0.5" Margin="0,0,0,16"/>
-                            
-                            <Grid Grid.Row="2">
+
+                    <!-- 2. Left Column: تفعيل الترخيص + معلومات الترخيص (stacked) -->
+                    <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Top">
+                        
+                        <!-- Card: تفعيل الترخيص -->
+                        <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="16" Margin="0,0,0,12">
+                            <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
-                                <TextBlock Grid.Row="0" Text="يرجى نسخ هذه البصمة وإرسالها للمشرف ليقوم بإصدار ملف الترخيص المناسب لجهازك." FontSize="11.5" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,16"/>
-                                
-                                <TextBox Grid.Row="1" 
-                                         Text="{Binding FormattedHardwareId, Mode=OneWay}" 
-                                         IsReadOnly="True" 
-                                         Background="{DynamicResource SurfaceAltBrush}" 
-                                         BorderBrush="{DynamicResource BorderBrush}" 
-                                         Padding="12" 
-                                         FontFamily="Consolas" 
-                                         FontSize="13" 
-                                         FontWeight="Bold" 
-                                         Foreground="{DynamicResource SuccessBrush}" 
-                                         TextWrapping="Wrap"
-                                         AcceptsReturn="True"
-                                         VerticalContentAlignment="Top"
-                                         HorizontalAlignment="Stretch"
-                                         Height="80"/>
+                                <TextBlock Grid.Row="0" Text="تفعيل الترخيص" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,0,8"/>
+                                <Border Grid.Row="1" Height="1" Background="{DynamicResource BorderBrush}" Opacity="0.5" Margin="0,0,0,12"/>
 
-                                <Button Grid.Row="2" 
-                                        Content="نسخ البصمة 📋" 
-                                        Command="{Binding CopyHwidCommand}" 
-                                        Margin="0,16,0,12" 
-                                        Padding="20,10" 
-                                        HorizontalAlignment="Left"
-                                        Style="{DynamicResource OutlineButtonStyle}"/>
+                                <Grid Grid.Row="2">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
 
-                                <!-- Copy Success Message -->
-                                <TextBlock Grid.Row="3" 
-                                           Text="✓ تم نسخ البصمة بنجاح" 
-                                           Foreground="{DynamicResource SuccessBrush}" 
-                                           FontSize="12" 
-                                           FontWeight="SemiBold"
-                                           Margin="0,4,0,0">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsHwidCopied}" Value="True">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
+                                    <TextBlock Grid.Row="0" Text="قم باستعراض ملف الترخيص الصادر للراوتر المتصل حالياً لتفعيل الميزات." FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+                                    <!-- File selection box -->
+                                    <Grid Grid.Row="1" Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBox Grid.Column="0" 
+                                                 IsReadOnly="True" 
+                                                 Background="{DynamicResource SurfaceAltBrush}" 
+                                                 BorderBrush="{DynamicResource BorderBrush}" 
+                                                 Padding="10,0" 
+                                                 FontSize="12.5" 
+                                                 VerticalContentAlignment="Center"
+                                                 HorizontalAlignment="Stretch"
+                                                 Height="36"
+                                                 Text="{Binding DisplayFilePath, Mode=OneWay}">
+                                            <TextBox.Style>
+                                                <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SelectedFilePath}" Value="">
+                                                            <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBox.Style>
+                                        </TextBox>
+
+                                        <Button Grid.Column="1" 
+                                                Content="استعراض 📂" 
+                                                Command="{Binding BrowseLicenseCommand}" 
+                                                Margin="8,0,0,0" 
+                                                Padding="14,0" 
+                                                Height="36"
+                                                Style="{DynamicResource OutlineButtonStyle}"
+                                                Cursor="Hand"/>
+                                    </Grid>
+
+                                    <!-- Activate Button -->
+                                    <Button Grid.Row="2" Content="تفعيل الترخيص 🔑"
+                                            Command="{Binding ActivateLicenseCommand}"
+                                            Height="36" Cursor="Hand"
+                                            Background="{DynamicResource PrimaryBrush}"
+                                            Foreground="White"
+                                            FontWeight="Bold"
+                                            FontSize="12.5"
+                                            BorderThickness="0"
+                                            HorizontalAlignment="Left"
+                                            Padding="24,0">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Bd" CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </Grid>
                             </Grid>
-                        </Grid>
-                    </Border>
+                        </Border>
 
-                    <!-- 3. License Activation Card (Row 1, Col 0) -->
-                    <Border Grid.Row="1" Grid.Column="0" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="24" Margin="0,16,12,0" VerticalAlignment="Stretch">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-                            
-                            <TextBlock Grid.Row="0" Text="تفعيل الترخيص" FontSize="14.5" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,0,10"/>
-                            <Border Grid.Row="1" Height="1" Background="{DynamicResource BorderBrush}" Opacity="0.5" Margin="0,0,0,16"/>
-                            
-                            <Grid Grid.Row="2">
+                        <!-- Card: معلومات الترخيص -->
+                        <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="16">
+                            <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                
-                                <TextBlock Grid.Row="0" Text="قم باستعراض ملف الترخيص الصادر للراوتر المتصل حالياً لتفعيل الميزات المقفلة وتسجيل البرنامج." FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,16"/>
 
-                                <!-- Label for file path -->
-                                <TextBlock Grid.Row="1" Text="ملف الترخيص المحدد:" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,0,6"/>
-                                
-                                <!-- File selection box -->
-                                <Grid Grid.Row="2" Margin="0,0,0,20">
+                                <TextBlock Grid.Row="0" Text="معلومات الترخيص النشط" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,0,8"/>
+                                <Border Grid.Row="1" Height="1" Background="{DynamicResource BorderBrush}" Opacity="0.5" Margin="0,0,0,12"/>
+
+                                <Grid Grid.Row="2">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <TextBox Grid.Column="0" 
-                                             IsReadOnly="True" 
-                                             Background="{DynamicResource SurfaceAltBrush}" 
-                                             BorderBrush="{DynamicResource BorderBrush}" 
-                                             Padding="12,10" 
-                                             FontSize="12.5" 
-                                             VerticalContentAlignment="Center"
-                                             HorizontalAlignment="Stretch"
-                                             Text="{Binding DisplayFilePath, Mode=OneWay}">
-                                        <TextBox.Style>
-                                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding SelectedFilePath}" Value="">
-                                                        <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBox.Style>
-                                    </TextBox>
-
-                                    <Button Grid.Column="1" 
-                                            Content="استعراض الملف 📂" 
-                                            Command="{Binding BrowseLicenseCommand}" 
-                                            Margin="10,0,0,0" 
-                                            Padding="20,0" 
-                                            Style="{DynamicResource OutlineButtonStyle}"
-                                            Cursor="Hand"/>
-                                </Grid>
-
-                                <!-- Activate Button -->
-                                <Button Grid.Row="3" Content="تفعيل الترخيص 🔑"
-                                        Command="{Binding ActivateLicenseCommand}"
-                                        Height="40" Cursor="Hand"
-                                        Background="{DynamicResource PrimaryBrush}"
-                                        Foreground="White"
-                                        FontWeight="Bold"
-                                        FontSize="13"
-                                        BorderThickness="0"
-                                        HorizontalAlignment="Left"
-                                        Padding="36,0">
-                                    <Button.Template>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="Bd" CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Button.Template>
-                                </Button>
-                            </Grid>
-                        </Grid>
-                    </Border>
-
-                    <!-- 4. Active License Information Card (Row 1, Col 1) -->
-                    <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="20" Margin="12,16,0,0" VerticalAlignment="Stretch">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-                            
-                            <TextBlock Grid.Row="0" Text="معلومات الترخيص" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,0,10"/>
-                            <Border Grid.Row="1" Height="1" Background="{DynamicResource BorderBrush}" Opacity="0.5" Margin="0,0,0,16"/>
-                            
-                            <Grid Grid.Row="2">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-
-                                <!-- Row 0: Status & Type -->
-                                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,12">
-                                    <TextBlock Text="حالة الترخيص" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2,0,0">
-                                        <Ellipse Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center">
-                                            <Ellipse.Style>
-                                                <Style TargetType="Ellipse">
-                                                    <Setter Property="Fill" Value="{DynamicResource WarningBrush}"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsLicenseValid}" Value="True">
-                                                            <Setter Property="Fill" Value="{DynamicResource SuccessBrush}"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding LicenseStatus}" Value="منتهي الصلاحية ❌">
-                                                            <Setter Property="Fill" Value="{DynamicResource DangerBrush}"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Ellipse.Style>
-                                        </Ellipse>
-                                        <TextBlock FontSize="13" FontWeight="Bold" VerticalAlignment="Center">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Text" Value="● غير مرخص"/>
-                                                    <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsLicenseValid}" Value="True">
-                                                            <Setter Property="Text" Value="✓ مرخص"/>
-                                                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding LicenseStatus}" Value="منتهي الصلاحية ❌">
-                                                            <Setter Property="Text" Value="⚠ انتهت الصلاحية"/>
-                                                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
+                                    <!-- Row 0: Status & Type -->
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,10">
+                                        <TextBlock Text="حالة الترخيص" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2,0,0">
+                                            <Ellipse Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Fill" Value="{DynamicResource WarningBrush}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsLicenseValid}" Value="True">
+                                                                <Setter Property="Fill" Value="{DynamicResource SuccessBrush}"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding LicenseStatus}" Value="منتهي الصلاحية ❌">
+                                                                <Setter Property="Fill" Value="{DynamicResource DangerBrush}"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+                                            <TextBlock FontSize="13" FontWeight="Bold" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="● غير مرخص"/>
+                                                        <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsLicenseValid}" Value="True">
+                                                                <Setter Property="Text" Value="✓ مرخص"/>
+                                                                <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding LicenseStatus}" Value="منتهي الصلاحية ❌">
+                                                                <Setter Property="Text" Value="⚠ منتهي"/>
+                                                                <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
                                     </StackPanel>
-                                </StackPanel>
-                                <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,12">
-                                    <TextBlock Text="نوع الترخيص" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <TextBlock Text="{Binding LicenseType}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0"/>
-                                </StackPanel>
+                                    <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,10">
+                                        <TextBlock Text="نوع الترخيص" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBlock Text="{Binding LicenseType}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0"/>
+                                    </StackPanel>
 
-                                <!-- Row 1: Issue Date & Expiry Date -->
-                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,12">
-                                    <TextBlock Text="تاريخ الإصدار" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <TextBlock Text="{Binding LicenseIssueDate}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,12">
-                                    <TextBlock Text="تاريخ الانتهاء" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <TextBlock Text="{Binding LicenseExpiryDate}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0"/>
-                                </StackPanel>
+                                    <!-- Row 1: Issue Date & Expiry Date -->
+                                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,10">
+                                        <TextBlock Text="تاريخ الإصدار" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBlock Text="{Binding LicenseIssueDate}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,10">
+                                        <TextBlock Text="تاريخ الانتهاء" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBlock Text="{Binding LicenseExpiryDate}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0"/>
+                                    </StackPanel>
 
-                                <!-- Row 2: Linked Router & Days Remaining -->
-                                <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,12">
-                                    <TextBlock Text="الراوتر المرتبط" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <TextBlock Text="{Binding LinkedRouter}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,0,0,12">
-                                    <TextBlock Text="الأيام المتبقية" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                     <TextBlock Text="{Binding DaysRemaining, StringFormat='{}{0} يوم'}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0"/>
-                                </StackPanel>
+                                    <!-- Row 2: Days Remaining & Owner -->
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,10">
+                                        <TextBlock Text="الأيام المتبقية" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBlock Text="{Binding DaysRemaining, StringFormat='{}{0} يوم'}" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,0,0,10">
+                                        <TextBlock Text="صاحب الترخيص" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBlock Text="{Binding LicenseOwner}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
 
-                                <!-- Row 3: Owner -->
-                                <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2">
-                                    <TextBlock Text="صاحب الترخيص" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <TextBlock Text="{Binding LicenseOwner}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0"/>
-                                </StackPanel>
+                                    <!-- Row 3: Linked Router -->
+                                    <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2">
+                                        <TextBlock Text="الراوتر المرتبط" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBlock Text="{Binding LinkedRouter}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </Grid>
                             </Grid>
-                        </Grid>
-                    </Border>
+                        </Border>
+                    </StackPanel>
                 </Grid>
             </StackPanel>
         </ScrollViewer>

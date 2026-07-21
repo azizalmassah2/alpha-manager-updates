@@ -313,17 +313,21 @@
 
                         <!-- License Status Indicator -->
                         <Border x:Name="SidebarLicenseStatus" CornerRadius="8" Padding="8,6" Margin="8,16,8,8" Background="{DynamicResource SurfaceAltBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ShellState.IsRegistered}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
                             <TextBlock FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Text" Value="● Free Edition"/>
                                         <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ShellState.IsRegistered}" Value="True">
-                                                <Setter Property="Text" Value="✓ مرخص"/>
-                                                <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
