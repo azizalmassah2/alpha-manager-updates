@@ -38,6 +38,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly Lux.Management.Console.Core.Session.IRouterSessionService _routerSessionService;
     private readonly ISecureStorageService _secureStorageService;
     private readonly IFeatureAuthorizationService _featureAuthorizationService;
+    private readonly IUserNotificationService _notificationService;
     private Action? _pendingNavigation;
 
     public IShellState ShellState => _shellState;
@@ -91,7 +92,8 @@ public partial class MainViewModel : ViewModelBase
         Lux.Management.Console.Core.Session.IConnectionService connectionService,
         Lux.Management.Console.Core.Session.IRouterSessionService routerSessionService,
         ISecureStorageService secureStorageService,
-        IFeatureAuthorizationService featureAuthorizationService) 
+        IFeatureAuthorizationService featureAuthorizationService,
+        IUserNotificationService notificationService) 
         : base(permissionService, eventBus)
     {
         _navigationService = navigationService;
@@ -110,6 +112,7 @@ public partial class MainViewModel : ViewModelBase
         _routerSessionService = routerSessionService;
         _secureStorageService = secureStorageService;
         _featureAuthorizationService = featureAuthorizationService;
+        _notificationService = notificationService;
 
         _ = LoadAlertsAsync();
 
@@ -142,6 +145,19 @@ public partial class MainViewModel : ViewModelBase
                         var session = await _connectionService.CreateSessionAsync(infoResult.RouterInfo, licResult);
                         _sessionManager.SetSession(session);
                         _shellState.IsRegistered = session.IsProMode;
+
+                        // التحقق من اقتراب انتهاء الترخيص وإظهار تنبيه عند تبديل الراوتر
+                        if (session.IsProMode && session.LicenseExpiresAt.HasValue)
+                        {
+                            DateTime expiryLocal = session.LicenseExpiresAt.Value.ToLocalTime().Date;
+                            int daysRemaining = (expiryLocal - DateTime.Today).Days;
+                            if (daysRemaining >= 0 && daysRemaining < 10)
+                            {
+                                _notificationService.ShowWarning(
+                                    $"⚠️ تنبيه: الترخيص الخاص بالراوتر المتصل أوشك على الانتهاء! متبقي له {daysRemaining} يوم/أيام فقط (ينتهي بتاريخ {expiryLocal:yyyy/MM/dd}). يرجى تجديد الترخيص لضمان استمرار تشغيل الوضع الاحترافي.",
+                                    "تنبيه انتهاء الترخيص");
+                            }
+                        }
                     }
                 }
                 catch { }

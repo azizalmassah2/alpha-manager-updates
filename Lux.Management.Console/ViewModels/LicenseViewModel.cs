@@ -233,9 +233,10 @@ public partial class LicenseViewModel : ViewModelBase
                     };
                     LicenseIssueDate = license.IssueDate.ToLocalTime().ToString("yyyy/MM/dd");
                     LicenseExpiryDate = license.ExpiryDate.ToLocalTime().ToString("yyyy/MM/dd");
-                    LicenseStatus = DateTime.Today > license.ExpiryDate ? "منتهي الصلاحية ❌" : "نشط وصالح ✓";
+                    var expiryLocal = license.ExpiryDate.ToLocalTime().Date;
+                    LicenseStatus = DateTime.Today > expiryLocal ? "منتهي الصلاحية ❌" : "نشط وصالح ✓";
                     
-                    DaysRemaining = Math.Max(0, (license.ExpiryDate.Date - DateTime.Today).Days);
+                    DaysRemaining = Math.Max(0, (expiryLocal - DateTime.Today).Days);
                     LinkedRouter = string.IsNullOrEmpty(license.HardwareId) ? "غير متوفر" : license.HardwareId;
                     return;
                 }

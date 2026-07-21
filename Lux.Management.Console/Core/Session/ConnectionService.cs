@@ -130,6 +130,25 @@ public class ConnectionService : IConnectionService
 
         var status = _licenseService.ValidateLicenseOffline(routerInfo.SerialNumber);
         
+        DateTime? expiryDate = null;
+        if (status == LicenseStatus.Valid)
+        {
+            try
+            {
+                var localLicensePath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "license.dat");
+                if (System.IO.File.Exists(localLicensePath))
+                {
+                    var json = System.IO.File.ReadAllText(localLicensePath);
+                    var licenseInfo = System.Text.Json.JsonSerializer.Deserialize<MikroTikVoucherPrinter.Application.Models.LicenseInfo>(json);
+                    if (licenseInfo != null)
+                    {
+                        expiryDate = licenseInfo.ExpiryDate;
+                    }
+                }
+            }
+            catch {}
+        }
+
         if (status == LicenseStatus.Valid)
         {
             _securityAuditService.LogEvent(new LicenseAuditEvent(AuditSeverity.Info, routerInfo.RouterId.ToString(), routerInfo.SerialNumber, "Valid", $"License validation succeeded for Router '{routerInfo.RouterId}' with Serial '{routerInfo.SerialNumber}'."));
@@ -141,7 +160,7 @@ public class ConnectionService : IConnectionService
 
         return status switch
         {
-            LicenseStatus.Valid => LicenseVerificationResult.Valid(),
+            LicenseStatus.Valid => LicenseVerificationResult.Valid(expiryDate),
             LicenseStatus.InvalidRouter => LicenseVerificationResult.Mismatch(),
             LicenseStatus.Corrupted => LicenseVerificationResult.Corrupted(),
             _ => LicenseVerificationResult.Corrupted()

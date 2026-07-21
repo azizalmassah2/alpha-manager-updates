@@ -503,6 +503,20 @@ public partial class App : Application
                 Application.Current.MainWindow = mainWindow;
                 mainWindow.Show();
 
+                // التحقق من اقتراب انتهاء الترخيص وإظهار تنبيه
+                if (session.IsProMode && session.LicenseExpiresAt.HasValue)
+                {
+                    DateTime expiryLocal = session.LicenseExpiresAt.Value.ToLocalTime().Date;
+                    int daysRemaining = (expiryLocal - DateTime.Today).Days;
+                    if (daysRemaining >= 0 && daysRemaining < 10)
+                    {
+                        var notificationService = _host.Services.GetRequiredService<IUserNotificationService>();
+                        notificationService.ShowWarning(
+                            $"⚠️ تنبيه: الترخيص الخاص بك أوشك على الانتهاء! متبقي له {daysRemaining} يوم/أيام فقط (ينتهي بتاريخ {expiryLocal:yyyy/MM/dd}). يرجى تجديد الترخيص لضمان استمرار تشغيل الوضع الاحترافي.",
+                            "تنبيه انتهاء الترخيص");
+                    }
+                }
+
                 // 3. إغلاق نافذة تسجيل الدخول
                 loginWindow.Close();
             };

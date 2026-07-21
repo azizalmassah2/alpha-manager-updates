@@ -142,12 +142,13 @@ public class LicenseService : ILicenseService
 
             // التحقق من الصلاحية
             DateTime today = DateTime.Today;
-            if (today > license.ExpiryDate)
+            DateTime expiryLocal = license.ExpiryDate.ToLocalTime().Date;
+            if (today > expiryLocal)
             {
-                int grace = license.GracePeriodDays - (today - license.ExpiryDate).Days;
+                int grace = license.GracePeriodDays - (today - expiryLocal).Days;
                 if (grace < 0)
                 {
-                    SetDiagnostics("Expired License", json, license.HardwareId, currentHwid, isSigValid, license, $"License expired on {license.ExpiryDate:yyyy-MM-dd}. Grace period also expired.");
+                    SetDiagnostics("Expired License", json, license.HardwareId, currentHwid, isSigValid, license, $"License expired on {expiryLocal:yyyy-MM-dd}. Grace period also expired.");
                     return false;
                 }
             }
@@ -421,12 +422,13 @@ public class LicenseService : ILicenseService
 
         // 8. انتهاء الصلاحية
         DateTime today = DateTime.Today;
-        if (today > license.ExpiryDate)
+        DateTime expiryLocal = license.ExpiryDate.ToLocalTime().Date;
+        if (today > expiryLocal)
         {
-            int grace = license.GracePeriodDays - (today - license.ExpiryDate).Days;
+            int grace = license.GracePeriodDays - (today - expiryLocal).Days;
             if (grace < 0)
             {
-                SetDiagnostics("Expired License", rawJson, license.HardwareId, currentHwid, isSigValid, license, $"License expired on {license.ExpiryDate:yyyy-MM-dd}. Grace period also expired.");
+                SetDiagnostics("Expired License", rawJson, license.HardwareId, currentHwid, isSigValid, license, $"License expired on {expiryLocal:yyyy-MM-dd}. Grace period also expired.");
                 _logger.LogError("❌ [License] انتهت الصلاحية وفترة السماح");
                 return LicenseStatus.Corrupted;
             }
@@ -543,12 +545,13 @@ public class LicenseService : ILicenseService
 
         // 8. انتهاء الصلاحية
         DateTime today = DateTime.Today;
-        if (today > license.ExpiryDate)
+        DateTime expiryLocal = license.ExpiryDate.ToLocalTime().Date;
+        if (today > expiryLocal)
         {
-            int grace = license.GracePeriodDays - (today - license.ExpiryDate).Days;
+            int grace = license.GracePeriodDays - (today - expiryLocal).Days;
             if (grace < 0)
             {
-                SetDiagnostics("Expired License", rawJson, license.HardwareId, currentHwid, isSigValid, license, $"License expired on {license.ExpiryDate:yyyy-MM-dd}. Grace period also expired.");
+                SetDiagnostics("Expired License", rawJson, license.HardwareId, currentHwid, isSigValid, license, $"License expired on {expiryLocal:yyyy-MM-dd}. Grace period also expired.");
                 _logger.LogError("❌ [License] انتهت الصلاحية وفترة السماح");
                 return LicenseStatus.Corrupted;
             }
