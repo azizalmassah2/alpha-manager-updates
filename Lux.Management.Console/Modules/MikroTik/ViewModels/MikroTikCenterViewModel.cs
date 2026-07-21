@@ -141,6 +141,10 @@ namespace Lux.Management.Console.Modules.MikroTik.ViewModels
         {
             if (value == null) return;
 
+            // ── أوقف الـ polling على الشاشة السابقة قبل الانتقال ──
+            if (CurrentSubPageViewModel is IDeactivatable previousDeactivatable)
+                previousDeactivatable.Deactivate();
+
             if (value.ViewModel != null)
             {
                 CurrentSubPageViewModel = value.ViewModel;

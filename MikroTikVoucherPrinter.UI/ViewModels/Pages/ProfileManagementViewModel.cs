@@ -219,7 +219,7 @@ public partial class ProfileManagementViewModel : BaseViewModel
                 string sharedUsers = NewSharedUsers.ToString();
 
                 var profile = await _profileService.CreateProfileAsync(
-                    MikroTikVoucherPrinter.Domain.Enums.PackageSourceType.UserManager, NewName, duration, transfer, uptime, NewRate, sharedUsers, NewPrice, token);
+                    MikroTikVoucherPrinter.Domain.Enums.PackageSourceType.UserManager, NewName, duration, transfer, uptime, NewRate, sharedUsers, NewPrice, "admin", token);
                 
                 profile.Transfer = displayTransfer; // Override raw bytes with human readable text for UI
                 

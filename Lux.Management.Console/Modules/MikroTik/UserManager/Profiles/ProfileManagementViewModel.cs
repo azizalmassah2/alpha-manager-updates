@@ -17,6 +17,8 @@ using MikroTikVoucherPrinter.Domain.Enums;
 using System.Windows;
 using Lux.Management.Console.Modules.MikroTik.UserManager.Vouchers.ViewModels;
 using Lux.Management.Console.Modules.MikroTik.UserManager;
+using Lux.MikroTik.Models;
+using Lux.MikroTik.Providers;
 
 namespace Lux.Management.Console.Modules.MikroTik.UserManager.Profiles.ViewModels;
 
@@ -128,10 +130,12 @@ public partial class ProfileManagementViewModel : ViewModelBase, IActivatable
 {
     private readonly IDispatcherService _dispatcherService;
     private readonly IDialogService _dialogService;
-    private readonly INotificationService _notificationService;
+    private readonly IUserNotificationService _notificationService;
     private readonly IProfileService _profileService;
     private readonly IProfileCacheService _profileCacheService;
     private readonly MikroTikVoucherPrinter.Domain.Interfaces.Platform.IActiveRouterContext _activeRouterContext;
+    private readonly IVoucherBackgroundImportManager _backgroundImportManager;
+    private readonly IRouterOsProvider _routerOsProvider;
 
     // ── Collection & View ──────────────────────────────────────────────────────
     public ObservableCollection<ProfileModel> Profiles { get; } = new();
@@ -237,6 +241,12 @@ public partial class ProfileManagementViewModel : ViewModelBase, IActivatable
     /// <summary>العمولة — محلية فقط</summary>
     [ObservableProperty] private decimal _commission = 0;
 
+    /// <summary>قائمة الـ Customers المتاحة من User Manager</summary>
+    public ObservableCollection<string> AvailableCustomers { get; } = new();
+
+    /// <summary>الـ Customer المختار — صاحب الباقة</summary>
+    [ObservableProperty] private string _selectedCustomer = "admin";
+
     // ── Transfer unit list ─────────────────────────────────────────────────────
     public List<string> TransferUnits { get; } = new() { "MB", "GB" };
 
@@ -249,10 +259,12 @@ public partial class ProfileManagementViewModel : ViewModelBase, IActivatable
         IEventBus eventBus,
         IDispatcherService dispatcherService,
         IDialogService dialogService,
-        INotificationService notificationService,
+        IUserNotificationService notificationService,
         IProfileService profileService,
         IProfileCacheService profileCacheService,
-        MikroTikVoucherPrinter.Domain.Interfaces.Platform.IActiveRouterContext activeRouterContext) : base(permissionService, eventBus)
+        MikroTikVoucherPrinter.Domain.Interfaces.Platform.IActiveRouterContext activeRouterContext,
+        IVoucherBackgroundImportManager backgroundImportManager,
+        IRouterOsProvider routerOsProvider) : base(permissionService, eventBus)
     {
         _dispatcherService = dispatcherService;
         _dialogService = dialogService;
@@ -260,6 +272,8 @@ public partial class ProfileManagementViewModel : ViewModelBase, IActivatable
         _profileService = profileService;
         _profileCacheService = profileCacheService;
         _activeRouterContext = activeRouterContext;
+        _backgroundImportManager = backgroundImportManager;
+        _routerOsProvider = routerOsProvider;
 
         DeleteSelectedCommand = new AsyncRelayCommand(DeleteSelectedAsync, () => SelectedCount > 0);
         ExportSelectedCommand = new AsyncRelayCommand(ExportSelectedAsync, () => SelectedCount > 0);
@@ -357,6 +371,28 @@ public partial class ProfileManagementViewModel : ViewModelBase, IActivatable
 
     private async Task PopulateProfilesListAsync(IReadOnlyList<Profile> list)
     {
+        var activeRouter = _activeRouterContext.CurrentRouter;
+        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        if (activeRouter != null)
+        {
+            try
+            {
+                if (SelectedSource == PackageSourceType.UserManager)
+                {
+                    counts = GetVouchersCountFromDb(activeRouter.Id);
+                }
+                else if (SelectedSource == PackageSourceType.Hotspot)
+                {
+                    counts = await GetHotspotVouchersCountAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error calculating profile voucher counts: {ex.Message}");
+            }
+        }
+
         await _dispatcherService.InvokeAsync(() =>
         {
             Profiles.Clear();
@@ -366,6 +402,14 @@ public partial class ProfileManagementViewModel : ViewModelBase, IActivatable
                 var model = MapToModel(p);
                 if (model != null)
                 {
+                    if (counts.TryGetValue(model.Name, out var c))
+                    {
+                        model.LinkedVouchers = c;
+                    }
+                    else
+                    {
+                        model.LinkedVouchers = 0;
+                    }
                     Profiles.Add(model);
                 }
                 else
@@ -380,6 +424,75 @@ public partial class ProfileManagementViewModel : ViewModelBase, IActivatable
             }
             UpdateStatistics();
         });
+    }
+
+    private Dictionary<string, int> GetVouchersCountFromDb(Guid routerId)
+    {
+        var dict = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var dbPath = _backgroundImportManager.GetCachedCleanDbPath(routerId);
+        if (string.IsNullOrEmpty(dbPath) || !System.IO.File.Exists(dbPath))
+        {
+            return dict;
+        }
+
+        try
+        {
+            using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};Mode=ReadOnly;Cache=Shared");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT pr.name, COUNT(up.id) 
+                FROM userprofile up 
+                JOIN profile pr ON pr.id = up.profileId 
+                GROUP BY pr.name";
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var profileName = reader.GetString(0);
+                var count = reader.GetInt32(1);
+                dict[profileName] = count;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error querying profile voucher counts: {ex.Message}");
+        }
+
+        return dict;
+    }
+
+    private async Task<Dictionary<string, int>> GetHotspotVouchersCountAsync()
+    {
+        var dict = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        if (!_routerOsProvider.IsConnected) return dict;
+
+        try
+        {
+            var cmd = new MikroTikCommand { Command = "/ip/hotspot/user/print" };
+            cmd.Parameters[".proplist"] = "profile";
+            var result = await _routerOsProvider.ExecuteAsync(cmd);
+            if (result.IsSuccess && result.Value?.RawData != null)
+            {
+                foreach (var item in result.Value.RawData)
+                {
+                    if (item.TryGetValue("profile", out var profName) && !string.IsNullOrEmpty(profName))
+                    {
+                        if (dict.ContainsKey(profName))
+                            dict[profName]++;
+                        else
+                            dict[profName] = 1;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error fetching Hotspot profile counts: {ex.Message}");
+        }
+
+        return dict;
     }
 
     [RelayCommand]
@@ -484,7 +597,7 @@ public partial class ProfileManagementViewModel : ViewModelBase, IActivatable
 
     // ── Dialog: Add ────────────────────────────────────────────────────────────
     [RelayCommand]
-    private void ShowAddDialog()
+    private async Task ShowAddDialog()
     {
         DialogTitle = SelectedSource == PackageSourceType.UserManager ? "إضافة باقة User Manager" : "إضافة باقة Hotspot";
         _isEditMode = false;
@@ -493,6 +606,37 @@ public partial class ProfileManagementViewModel : ViewModelBase, IActivatable
         // Reset all structured fields to defaults (same as legacy)
         ResetDialogFields();
         IsNameEnabled = true;
+
+        // جلب Customers من الراوتر (User Manager فقط)
+        if (SelectedSource == PackageSourceType.UserManager)
+        {
+            try
+            {
+                using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(5));
+                var customers = await _profileService.GetCustomersAsync(SelectedSource, cts.Token);
+                await _dispatcherService.InvokeAsync(() =>
+                {
+                    AvailableCustomers.Clear();
+                    foreach (var c in customers)
+                        AvailableCustomers.Add(c);
+                    SelectedCustomer = AvailableCustomers.FirstOrDefault() ?? "admin";
+                });
+            }
+            catch
+            {
+                // إذا فشل الجلب نُبقي القيمة الافتراضية
+                if (AvailableCustomers.Count == 0)
+                {
+                    await _dispatcherService.InvokeAsync(() =>
+                    {
+                        AvailableCustomers.Clear();
+                        AvailableCustomers.Add("admin");
+                        SelectedCustomer = "admin";
+                    });
+                }
+            }
+        }
+
         IsDialogOpen = true;
     }
 
@@ -672,6 +816,7 @@ public partial class ProfileManagementViewModel : ViewModelBase, IActivatable
                         rateLimit: RateLimit,
                         sharedUsers: sharedUsers,
                         price: SellingPrice,
+                        customer: SelectedCustomer,
                         cancellationToken: ct);
 
                     await _dispatcherService.InvokeAsync(() =>
@@ -692,12 +837,16 @@ public partial class ProfileManagementViewModel : ViewModelBase, IActivatable
                     // ── UPDATE ──────────────────────────────────────────────
                     await _profileService.UpdateProfileAsync(
                         sourceType: SelectedSource,
-                        name: EditingProfile.Name,
-                        validity: duration,
-                        transfer: transfer,     // raw bytes
-                        uptime: uptime,
-                        sharedUsers: sharedUsers,
-                        price: SellingPrice,
+                        profile: new Profile
+                        {
+                            Name = EditingProfile.Name,
+                            Duration = duration,
+                            Transfer = transfer,     // raw bytes
+                            Uptime = uptime,
+                            RateLimit = RateLimit,
+                            SharedUsers = sharedUsers,
+                            Price = SellingPrice
+                        },
                         cancellationToken: ct);
 
                     await _dispatcherService.InvokeAsync(() =>
@@ -772,13 +921,25 @@ public partial class ProfileManagementViewModel : ViewModelBase, IActivatable
     {
         if (string.IsNullOrEmpty(p.SystemType)) return null;
 
+        string size = p.Transfer;
+        if (string.IsNullOrWhiteSpace(size) || size == "0" || size.Trim() == "0 B" || size.Trim() == "0.00 B")
+            size = "مفتوح";
+
+        string validity = p.Duration;
+        if (string.IsNullOrWhiteSpace(validity) || validity == "0")
+            validity = "مفتوح";
+
+        string uptime = p.Uptime;
+        if (string.IsNullOrWhiteSpace(uptime) || uptime == "0" || uptime == "0s" || uptime == "00:00:00")
+            uptime = "مفتوح";
+
         return new()
         {
             Id = p.Id,
             Name = p.Name,
-            Validity = p.Duration,
-            Size = p.Transfer,       // stored as "5 GB" (displayTransfer) after CreateProfileAsync
-            Uptime = p.Uptime,
+            Validity = validity,
+            Size = size,       // stored as "5 GB" (displayTransfer) after CreateProfileAsync
+            Uptime = uptime,
             Speed = p.RateLimit,
             SharedUsers = p.SharedUsers,
             SellingPrice = p.Price,
@@ -798,6 +959,7 @@ public partial class ProfileManagementViewModel : ViewModelBase, IActivatable
         SellingPrice = 1000;
         AgentPrice = 0;
         Commission = 0;
+        SelectedCustomer = AvailableCustomers.FirstOrDefault() ?? "admin";
     }
 
     private void UpdateStatistics()

@@ -18,6 +18,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Lux.Platform.Abstractions.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using MikroTikVoucherPrinter.Infrastructure.Data;
+using Lux.Management.Console.Core;
 
 namespace Lux.Management.Console.Modules.MikroTik.RouterManagement.ViewModels;
 
@@ -185,7 +186,7 @@ public partial class AlertItem : ObservableObject
     public string Message { get; set; } = string.Empty;
 }
 
-public partial class NocViewModel : ObservableObject, IDisposable
+public partial class NocViewModel : ObservableObject, IDisposable, IActivatable, IDeactivatable
 {
     private readonly IActiveRouterContext _activeRouterContext;
     private readonly IRouterManagementService _routerService;
@@ -285,7 +286,7 @@ public partial class NocViewModel : ObservableObject, IDisposable
         // Subscribe to background health monitor events
         _eventBus.Subscribe<MikroTikVoucherPrinter.Infrastructure.Monitoring.VlanHealthChangedEvent>(this, OnVlanHealthChanged);
 
-        _ = LoadInitialDataAndStartAsync();
+        // لا نبدأ الـ polling هنا — يبدأ فقط عند ActivateAsync (عند الانتقال للشاشة فعلياً)
     }
 
     private void OnVlanHealthChanged(MikroTikVoucherPrinter.Infrastructure.Monitoring.VlanHealthChangedEvent ev)
@@ -308,8 +309,27 @@ public partial class NocViewModel : ObservableObject, IDisposable
 
     private void OnActiveRouterChanged(object? sender, EventArgs e)
     {
-        _ = LoadInitialDataAndStartAsync();
+        // إذا كانت الشاشة مفعّلة حالياً نُعيد التحميل، وإلا سيتم التحميل عند التنقل إليها
+        if (_isActive)
+            _ = LoadInitialDataAndStartAsync();
     }
+
+    // ── IActivatable — يُستدعى عند الانتقال إلى شاشة الفيلانات ──
+    public async Task ActivateAsync()
+    {
+        _isActive = true;
+        await LoadInitialDataAndStartAsync();
+    }
+
+    // ── IDeactivatable — يُستدعى عند مغادرة شاشة الفيلانات ──
+    public void Deactivate()
+    {
+        _isActive = false;
+        StopPolling();
+        _logger.LogInformation("[NOC] Polling stopped — user navigated away from Dashboard.");
+    }
+
+    private bool _isActive = false;
 
     [RelayCommand]
     private async Task LoadInitialDataAndStartAsync()

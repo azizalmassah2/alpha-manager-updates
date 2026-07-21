@@ -9,6 +9,8 @@ using Lux.Management.Console.ViewModels;
 using Lux.Platform.Abstractions.Interfaces;
 using MikroTikVoucherPrinter.Application.Interfaces;
 using MikroTikVoucherPrinter.Domain.Interfaces.Platform;
+using Lux.MikroTik.Models;
+using Lux.MikroTik.Providers;
 
 namespace Lux.Management.Console.Modules.MikroTik.Dashboard;
 
@@ -25,6 +27,8 @@ public partial class DashboardViewModel : ViewModelBase
     private readonly IDispatcherService _dispatcherService;
     private readonly IAutoRefreshService _autoRefreshService;
     private readonly IVoucherBackgroundImportManager _backgroundImportManager;
+    private readonly IRouterOsProvider _routerOsProvider;
+    private readonly ISecureStorageService _secureStorageService;
 
     [ObservableProperty]
     private string _routerName = "—";
@@ -54,6 +58,11 @@ public partial class DashboardViewModel : ViewModelBase
     [ObservableProperty] private int _criticalDevices;
     [ObservableProperty] private int _totalProjects;
     [ObservableProperty] private int _activeMonitoringSessions;
+    [ObservableProperty] private int _liveActiveUsers;
+    [ObservableProperty] private int _liveActiveHotspotUsers;
+    [ObservableProperty] private int _liveActivePppUsers;
+    [ObservableProperty] private string _liveActiveDetails = "هوتسبوت: 0 | PPP: 0";
+    [ObservableProperty] private int _liveHosts;
     [ObservableProperty] private System.Collections.ObjectModel.ObservableCollection<DashboardAlertDto> _recentAlerts = new();
 
     public DashboardViewModel(
@@ -62,13 +71,17 @@ public partial class DashboardViewModel : ViewModelBase
         IActiveRouterContext activeRouterContext,
         IDispatcherService dispatcherService,
         IAutoRefreshService autoRefreshService,
-        IVoucherBackgroundImportManager backgroundImportManager) 
+        IVoucherBackgroundImportManager backgroundImportManager,
+        IRouterOsProvider routerOsProvider,
+        ISecureStorageService secureStorageService) 
         : base(permissionService, eventBus)
     {
         _activeRouterContext = activeRouterContext;
         _dispatcherService = dispatcherService;
         _autoRefreshService = autoRefreshService;
         _backgroundImportManager = backgroundImportManager;
+        _routerOsProvider = routerOsProvider;
+        _secureStorageService = secureStorageService;
 
         _activeRouterContext.ActiveRouterChanged += OnActiveRouterChanged;
         _autoRefreshService.RegisterCallback(LoadRealDataAsync);
@@ -124,6 +137,8 @@ public partial class DashboardViewModel : ViewModelBase
             CriticalDevices = 0;
             TotalProjects = 0;
             ActiveMonitoringSessions = 0;
+            LiveActiveUsers = 0;
+            LiveHosts = 0;
             _dispatcherService.Invoke(() => RecentAlerts.Clear());
             return;
         }
@@ -138,6 +153,8 @@ public partial class DashboardViewModel : ViewModelBase
             CriticalDevices = 0;
             TotalProjects = 0;
             ActiveMonitoringSessions = 0;
+            LiveActiveUsers = 0;
+            LiveHosts = 0;
             _dispatcherService.Invoke(() =>
             {
                 RecentAlerts.Clear();
@@ -151,8 +168,111 @@ public partial class DashboardViewModel : ViewModelBase
             return;
         }
 
+        var diagnostics = new System.Collections.Generic.List<string>();
+
         try
         {
+            if (!_routerOsProvider.IsConnected)
+            {
+                diagnostics.Add("مزود الاتصال غير نشط، محاولة الاتصال التلقائي...");
+                try
+                {
+                    string password = string.Empty;
+                    if (!string.IsNullOrEmpty(router.EncryptedPassword))
+                    {
+                        password = _secureStorageService.Decrypt(router.EncryptedPassword);
+                    }
+
+                    var options = new MikroTikConnectionOptions
+                    {
+                        Host = router.Host,
+                        Port = router.Port,
+                        Username = router.Username,
+                        Password = password,
+                        UseSsl = false,
+                        ProviderType = RouterOsProviderType.Api
+                    };
+
+                    var connRes = await _routerOsProvider.ConnectAsync(options);
+                    if (connRes.IsSuccess)
+                    {
+                        diagnostics.Add("تم تأسيس الاتصال التلقائي بالراوتر بنجاح.");
+                    }
+                    else
+                    {
+                        diagnostics.Add($"فشل الاتصال التلقائي بالراوتر: {connRes.ErrorMessage}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    diagnostics.Add($"خطأ أثناء محاولة الاتصال بالراوتر: {ex.Message}");
+                }
+            }
+            else
+            {
+                diagnostics.Add("الاتصال بالمايكروتيك نشط وجاهز للعمل.");
+            }
+
+            int liveActive = 0;
+            int liveActiveHotspot = 0;
+            int liveActivePpp = 0;
+            int liveHostsVal = 0;
+
+            if (_routerOsProvider.IsConnected)
+            {
+                try
+                {
+                    // 1. Hotspot active users count
+                    var hsCmd = new MikroTikCommand { Command = "/ip/hotspot/active/print" };
+                    var hsActiveResult = await _routerOsProvider.ExecuteAsync(hsCmd);
+                    if (hsActiveResult.IsSuccess && hsActiveResult.Value?.RawData != null)
+                    {
+                        liveActiveHotspot = hsActiveResult.Value.RawData.Count;
+                        liveActive += liveActiveHotspot;
+                        diagnostics.Add($"مستخدمي Hotspot النشطين من الراوتر: {liveActiveHotspot}");
+                    }
+                    else
+                    {
+                        diagnostics.Add($"فشل استعلام Hotspot النشطين: {hsActiveResult.ErrorMessage}");
+                    }
+
+                    // 2. PPP active users count
+                    var pppCmd = new MikroTikCommand { Command = "/ppp/active/print" };
+                    var pppActiveResult = await _routerOsProvider.ExecuteAsync(pppCmd);
+                    if (pppActiveResult.IsSuccess && pppActiveResult.Value?.RawData != null)
+                    {
+                        liveActivePpp = pppActiveResult.Value.RawData.Count;
+                        liveActive += liveActivePpp;
+                        diagnostics.Add($"مستخدمي PPP النشطين من الراوتر: {liveActivePpp}");
+                    }
+                    else
+                    {
+                        diagnostics.Add($"فشل استعلام PPP النشطين: {pppActiveResult.ErrorMessage}");
+                    }
+
+                    // 3. Hotspot hosts count
+                    var hostCmd = new MikroTikCommand { Command = "/ip/hotspot/host/print" };
+                    var hostsResult = await _routerOsProvider.ExecuteAsync(hostCmd);
+                    if (hostsResult.IsSuccess && hostsResult.Value?.RawData != null)
+                    {
+                        liveHostsVal = hostsResult.Value.RawData.Count;
+                        diagnostics.Add($"عدد الهوستس (Hosts) المتصلين بالراوتر: {hostsResult.Value.RawData.Count}");
+                    }
+                    else
+                    {
+                        diagnostics.Add($"فشل استعلام الهوستس: {hostsResult.ErrorMessage}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    diagnostics.Add($"خطأ أثناء استعلام الأرقام الحية: {ex.Message}");
+                }
+            }
+            else
+            {
+                diagnostics.Add("تنبيه: مزود الاتصال غير متصل، تعذر استعلام الأرقام الحية.");
+            }
+
             await Task.Run(() =>
             {
                 using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};Mode=ReadOnly;Cache=Shared");
@@ -197,8 +317,23 @@ public partial class DashboardViewModel : ViewModelBase
                     CriticalDevices = critical;
                     TotalProjects = projects;
                     ActiveMonitoringSessions = sessions;
+                    LiveActiveUsers = liveActive;
+                    LiveActiveHotspotUsers = liveActiveHotspot;
+                    LiveActivePppUsers = liveActivePpp;
+                    LiveActiveDetails = $"هوتسبوت: {liveActiveHotspot} | PPP: {liveActivePpp}";
+                    LiveHosts = liveHostsVal;
 
                     RecentAlerts.Clear();
+                    foreach (var diag in diagnostics)
+                    {
+                        RecentAlerts.Add(new DashboardAlertDto
+                        {
+                            Severity = diag.Contains("فشل") || diag.Contains("خطأ") || diag.Contains("تنبيه") ? "تنبيه" : "معلومات",
+                            Message = diag,
+                            Timestamp = DateTime.Now
+                        });
+                    }
+
                     RecentAlerts.Add(new DashboardAlertDto
                     {
                         Severity = "معلومات",

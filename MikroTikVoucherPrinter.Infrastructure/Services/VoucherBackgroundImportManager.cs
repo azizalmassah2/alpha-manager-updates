@@ -281,7 +281,11 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                 // Check if the router has a UserManager SQLite database
                 _logger.LogInformation("🔄 [InitialImport] Checking if router has a UserManager SQLite database...");
                 string? scannedPath = null;
-                if (_routerDbPathCache.TryGetValue(routerId, out var cachedPath))
+                if (!string.IsNullOrEmpty(router.UserManagerDbPath))
+                {
+                    scannedPath = router.UserManagerDbPath;
+                }
+                else if (_routerDbPathCache.TryGetValue(routerId, out var cachedPath))
                 {
                     scannedPath = cachedPath;
                 }
@@ -291,8 +295,13 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                     if (!string.IsNullOrEmpty(scannedPath))
                     {
                         _routerDbPathCache[routerId] = scannedPath;
+                        
+                        // Save to database!
+                        router.UserManagerDbPath = scannedPath;
+                        await platformDb.SaveChangesAsync(token);
                     }
                 }
+
                 if (!string.IsNullOrEmpty(scannedPath))
                 {
                     _logger.LogInformation("✅ [InitialImport] UserManager database found at: {Path}. Using Snapshot Sync for initial import.", scannedPath);
@@ -928,8 +937,28 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                 bool downloadSucceeded = false;
                 string baseRemote = "";
 
-                // 1.0 Try reading from cache first
-                if (_routerDbPathCache.TryGetValue(routerId, out var cachedPath) && !string.IsNullOrEmpty(cachedPath))
+                // 1.0 Try reading from saved database path
+                if (!string.IsNullOrEmpty(router.UserManagerDbPath))
+                {
+                    _logger.LogInformation("🎯 [SnapshotSync] Found saved database path: {Path}. Downloading directly...", router.UserManagerDbPath);
+                    try
+                    {
+                        FtpDownload($"ftp://{router.Host}/{router.UserManagerDbPath}", tempMain, router.Username, pass);
+                        baseRemote = router.UserManagerDbPath;
+                        downloadSucceeded = true;
+                        _routerDbPathCache[routerId] = router.UserManagerDbPath;
+                    }
+                    catch (WebException ex)
+                    {
+                        _logger.LogWarning(ex, "⚠️ [SnapshotSync] Failed to download from saved path: {Path}. Clearing database path to force rescan...", router.UserManagerDbPath);
+                        router.UserManagerDbPath = null;
+                        await platformDb.SaveChangesAsync(cancellationToken);
+                        _routerDbPathCache.TryRemove(routerId, out _);
+                    }
+                }
+
+                // 1.05 Try reading from cache first
+                if (!downloadSucceeded && _routerDbPathCache.TryGetValue(routerId, out var cachedPath) && !string.IsNullOrEmpty(cachedPath))
                 {
                     _logger.LogInformation("🎯 [SnapshotSync] Found cached database path: {Path}. Downloading directly...", cachedPath);
                     try
@@ -959,6 +988,10 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                             baseRemote = scannedPath;
                             downloadSucceeded = true;
                             _routerDbPathCache[routerId] = scannedPath; // Cache it!
+                            
+                            // Save to database!
+                            router.UserManagerDbPath = scannedPath;
+                            await platformDb.SaveChangesAsync(cancellationToken);
                         }
                         catch (WebException)
                         {
@@ -988,6 +1021,10 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                             downloadSucceeded = true;
                             _logger.LogInformation("✅ [SnapshotSync Fallback] Downloaded successfully from path: {Path}", path);
                             _routerDbPathCache[routerId] = path; // Cache it!
+                            
+                            // Save to database!
+                            router.UserManagerDbPath = path;
+                            await platformDb.SaveChangesAsync(cancellationToken);
                             break;
                         }
                         catch (WebException)
@@ -2127,8 +2164,28 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                 bool downloadSucceeded = false;
                 string baseRemote = "";
 
+                // 0.9 Try reading from saved database path
+                if (!string.IsNullOrEmpty(router.UserManagerDbPath))
+                {
+                    try
+                    {
+                        _logger.LogInformation("🔄 [DownloadAndCacheDbAsync] Probing saved path: ftp://{Host}/{Path} ...", router.Host, router.UserManagerDbPath);
+                        FtpDownload($"ftp://{router.Host}/{router.UserManagerDbPath}", tempMain, router.Username, pass);
+                        baseRemote = router.UserManagerDbPath;
+                        downloadSucceeded = true;
+                        _routerDbPathCache[routerId] = router.UserManagerDbPath;
+                    }
+                    catch (WebException)
+                    {
+                        _logger.LogWarning("⚠️ [DownloadAndCacheDbAsync] Saved path failed. Clearing it to force rediscovery.");
+                        router.UserManagerDbPath = null;
+                        await platformDb.SaveChangesAsync(cancellationToken);
+                        _routerDbPathCache.TryRemove(routerId, out _);
+                    }
+                }
+
                 // 1.0 Try cached path
-                if (_routerDbPathCache.TryGetValue(routerId, out var cachedPath) && !string.IsNullOrEmpty(cachedPath))
+                if (!downloadSucceeded && _routerDbPathCache.TryGetValue(routerId, out var cachedPath) && !string.IsNullOrEmpty(cachedPath))
                 {
                     try
                     {
@@ -2154,6 +2211,10 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                             baseRemote = scannedPath;
                             downloadSucceeded = true;
                             _routerDbPathCache[routerId] = scannedPath;
+
+                            // Save to database!
+                            router.UserManagerDbPath = scannedPath;
+                            await platformDb.SaveChangesAsync(cancellationToken);
                         }
                         catch (WebException) { }
                     }
@@ -2178,6 +2239,10 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                             baseRemote = path;
                             downloadSucceeded = true;
                             _routerDbPathCache[routerId] = path;
+
+                            // Save to database!
+                            router.UserManagerDbPath = path;
+                            await platformDb.SaveChangesAsync(cancellationToken);
                             break;
                         }
                         catch (WebException) { }
@@ -2226,6 +2291,94 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                 TryDelete(tempMain); TryDelete(tempWal); TryDelete(tempShm);
                 TryDelete(cleanDb);
                 TryDelete(tempMain + "-wal"); TryDelete(tempMain + "-shm");
+            }
+        }
+
+        public async Task<Dictionary<string, string>> GetDhcpLeasesAsync(Guid routerId, CancellationToken cancellationToken = default)
+        {
+            var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                await using var platformDb = await _platformDbFactory.CreateDbContextAsync(cancellationToken);
+                var router = await platformDb.Routers.FirstOrDefaultAsync(r => r.Id == routerId, cancellationToken);
+                if (router == null) return dict;
+
+                var pass = "";
+                if (!string.IsNullOrWhiteSpace(router.EncryptedPassword))
+                {
+                    pass = _secureStorageService.Decrypt(router.EncryptedPassword);
+                }
+
+                await Task.Run(() =>
+                {
+                    using var connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
+                    connection.SendTimeout = 4000;
+                    connection.ReceiveTimeout = 4000;
+                    connection.Open(router.Host, router.Username, pass);
+
+                    var leases = connection.CreateCommandAndParameters("/ip/dhcp-server/lease/print").ExecuteList().Cast<ITikSentence>();
+                    foreach (var l in leases)
+                    {
+                        var mac = GetWord(l, "mac-address");
+                        var host = GetWord(l, "host-name");
+                        if (!string.IsNullOrEmpty(mac) && !string.IsNullOrEmpty(host))
+                        {
+                            dict[mac] = host;
+                        }
+                    }
+                }, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"Error fetching DHCP leases from router: {ex.Message}");
+            }
+            return dict;
+        }
+
+        public async Task<int> GetActiveUsersCountAsync(Guid routerId, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                await using var platformDb = await _platformDbFactory.CreateDbContextAsync(cancellationToken);
+                var router = await platformDb.Routers.FirstOrDefaultAsync(r => r.Id == routerId, cancellationToken);
+                if (router == null) return 0;
+
+                var pass = "";
+                if (!string.IsNullOrWhiteSpace(router.EncryptedPassword))
+                {
+                    pass = _secureStorageService.Decrypt(router.EncryptedPassword);
+                }
+
+                return await Task.Run(() =>
+                {
+                    using var connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
+                    connection.SendTimeout = 3000;
+                    connection.ReceiveTimeout = 3000;
+                    connection.Open(router.Host, router.Username, pass);
+
+                    int hotspotActive = 0;
+                    try
+                    {
+                        var hsResult = connection.CreateCommandAndParameters("/ip/hotspot/active/print", ".proplist", ".id").ExecuteList();
+                        hotspotActive = System.Linq.Enumerable.Count(hsResult);
+                    }
+                    catch { /* ignore */ }
+
+                    int pppActive = 0;
+                    try
+                    {
+                        var pppResult = connection.CreateCommandAndParameters("/ppp/active/print", ".proplist", ".id").ExecuteList();
+                        pppActive = System.Linq.Enumerable.Count(pppResult);
+                    }
+                    catch { /* ignore */ }
+
+                    return hotspotActive + pppActive;
+                }, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"Error fetching active users count from router: {ex.Message}");
+                return 0;
             }
         }
 

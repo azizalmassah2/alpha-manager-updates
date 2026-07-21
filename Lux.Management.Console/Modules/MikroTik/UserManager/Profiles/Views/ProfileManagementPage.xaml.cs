@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace Lux.Management.Console.Modules.MikroTik.UserManager.Profiles.Views
@@ -40,6 +40,15 @@ namespace Lux.Management.Console.Modules.MikroTik.UserManager.Profiles.Views
                 {
                     ProfilesDataGrid.UnselectAll();
                 }
+            }
+        }
+
+        private void BtnRowMenu_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.ContextMenu != null)
+            {
+                btn.ContextMenu.PlacementTarget = btn;
+                btn.ContextMenu.IsOpen = true;
             }
         }
     }

@@ -283,13 +283,50 @@ public class ProfileService : IProfileService
     }
 
     // ═══════════════════════════════════════════════════════════
-    //  إنشاء باقة في المايكروتك
+    //  جلب المستخدمين (Customers) من User Manager
+    // ═══════════════════════════════════════════════════════════
+    public async Task<IReadOnlyList<string>> GetCustomersAsync(PackageSourceType sourceType, CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        try
+        {
+            string systemType = await ResolveSystemTypeAsync(sourceType, cancellationToken);
+
+            string command = systemType == "UMv7"
+                ? "/user-manager/user/print"
+                : "/tool/user-manager/customer/print";
+
+            var cmd = new MikroTikCommand { Command = command };
+            var response = await _commandExecutor.ExecuteAsync(cmd, cancellationToken);
+
+            var logins = response.RawData
+                .Select(r => r.TryGetValue("login", out var v) ? v : null)
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .Select(l => l!)
+                .OrderBy(l => l)
+                .ToList();
+
+            return logins.Count > 0 ? logins : new List<string> { "admin" };
+        }
+        catch
+        {
+            // Fallback: اذا فشل الجلب نُعيد "admin" كقيمة افتراضية
+            return new List<string> { "admin" };
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  إنشاء باقة في المايكروتيك
     // ═══════════════════════════════════════════════════════════
     public async Task<Profile> CreateProfileAsync(PackageSourceType sourceType, string name, string validity, string transfer, string uptime,
-        string rateLimit, string sharedUsers, decimal price, CancellationToken cancellationToken = default)
+        string rateLimit, string sharedUsers, decimal price, string customer = "admin", CancellationToken cancellationToken = default)
     {
         EnsureConnected();
         string systemType = await ResolveSystemTypeAsync(sourceType, cancellationToken);
+
+        // لوج الأمر قبل الإرسال
+        var logSb = new System.Text.StringBuilder();
+        logSb.AppendLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Sending command for profile '{name}' (SystemType={systemType}, Customer={customer})");
 
         try
         {
@@ -299,7 +336,7 @@ public class ProfileService : IProfileService
                 cmd.Parameters.Add("name", name);
                 cmd.Parameters.Add("starts-when", "first-auth");
                 cmd.Parameters.Add("validity", validity);
-                cmd.Parameters.Add("price", price.ToString("F2"));
+                cmd.Parameters.Add("price", price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
                 if (!string.IsNullOrEmpty(rateLimit))
                 {
                     cmd.Parameters.Add("rate-limit-rx", rateLimit);
@@ -310,17 +347,27 @@ public class ProfileService : IProfileService
             }
             else if (systemType == "UMv6")
             {
+                // أمر إضافة الباقة — محقق من الترمينال: هذه البارامترات تعمل مع owner=admin
                 var cmd = new MikroTikCommand { Command = "/tool/user-manager/profile/add" };
                 cmd.Parameters.Add("name", name);
+                cmd.Parameters.Add("name-for-users", name);   // الاسم الظاهر في البورتال
+                cmd.Parameters.Add("owner", customer);         // Customer login (مثال: admin)
+                cmd.Parameters.Add("starts-at", "logon");      // ابدأ بعد تسجيل الدخول
                 cmd.Parameters.Add("validity", validity);
-                cmd.Parameters.Add("price", price.ToString("F2"));
-                cmd.Parameters.Add("shared-users", sharedUsers);
+                cmd.Parameters.Add("price", price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
+                cmd.Parameters.Add("override-shared-users", sharedUsers);
+
+                foreach (var p in cmd.Parameters)
+                    logSb.AppendLine($"  Param: {p.Key} = {p.Value}");
+
                 await _commandExecutor.ExecuteAsync(cmd, cancellationToken);
 
+                // إضافة الحدود إذا كانت محددة
                 if (!string.IsNullOrEmpty(transfer) || !string.IsNullOrEmpty(uptime) || !string.IsNullOrEmpty(rateLimit))
                 {
                     var limCmd = new MikroTikCommand { Command = "/tool/user-manager/profile/limitation/add" };
                     limCmd.Parameters.Add("name", name);
+                    limCmd.Parameters.Add("owner", customer);
                     if (!string.IsNullOrEmpty(transfer)) limCmd.Parameters.Add("transfer-limit", transfer);
                     if (!string.IsNullOrEmpty(uptime)) limCmd.Parameters.Add("uptime-limit", uptime);
                     if (!string.IsNullOrEmpty(rateLimit))
@@ -329,6 +376,12 @@ public class ProfileService : IProfileService
                         limCmd.Parameters.Add("rate-limit-tx", rateLimit);
                     }
                     await _commandExecutor.ExecuteAsync(limCmd, cancellationToken);
+
+                    // ربط الباقة بالليميت (Profile Limitation Link)
+                    var linkCmd = new MikroTikCommand { Command = "/tool/user-manager/profile/profile-limitation/add" };
+                    linkCmd.Parameters.Add("profile", name);
+                    linkCmd.Parameters.Add("limitation", name);
+                    await _commandExecutor.ExecuteAsync(linkCmd, cancellationToken);
                 }
             }
             else // Hotspot
@@ -340,10 +393,12 @@ public class ProfileService : IProfileService
                 cmd.Parameters.Add("shared-users", sharedUsers);
                 await _commandExecutor.ExecuteAsync(cmd, cancellationToken);
             }
+
+            try { System.IO.File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "lux_command_errors.txt"), logSb.ToString() + "Success!\n" + new string('-', 50) + "\n"); } catch {}
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new Exception("تعذر إنشاء الباقة في المايكروتك. تأكد من صحة الصلاحيات.", ex);
+            throw;
         }
 
         return new Profile
@@ -386,7 +441,7 @@ public class ProfileService : IProfileService
                     var setCmd = new MikroTikCommand { Command = "/user-manager/profile/set" };
                     setCmd.Parameters.Add(".id", id);
                     setCmd.Parameters.Add("validity", profile.Duration ?? "");
-                    setCmd.Parameters.Add("price", profile.Price.ToString("F2"));
+                    setCmd.Parameters.Add("price", profile.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
                     setCmd.Parameters.Add("shared-users", profile.SharedUsers ?? "1");
                     await _commandExecutor.ExecuteAsync(setCmd, cancellationToken);
                 }
@@ -404,7 +459,7 @@ public class ProfileService : IProfileService
                     var setCmd = new MikroTikCommand { Command = "/tool/user-manager/profile/set" };
                     setCmd.Parameters.Add(".id", id);
                     setCmd.Parameters.Add("validity", profile.Duration ?? "");
-                    setCmd.Parameters.Add("price", profile.Price.ToString("F2"));
+                    setCmd.Parameters.Add("price", profile.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
                     setCmd.Parameters.Add("shared-users", profile.SharedUsers ?? "1");
                     await _commandExecutor.ExecuteAsync(setCmd, cancellationToken);
                     

@@ -10,12 +10,13 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
-namespace MikroTikVoucherPrinter.UI.Views.Windows;
+namespace Lux.Management.Console.Modules.MikroTik.UserManager.Vouchers.Views;
 
 public partial class UserReportWindow : Window
 {
     private readonly string _userName;
     private string _dbPath;
+    private string _routerName = "—";
     
     // بيانات التقرير
     private string _profile = "—";
@@ -30,12 +31,14 @@ public partial class UserReportWindow : Window
     private string _macs = "لا يوجد";
     
     private readonly List<UserSessionReportItem> _sessionsList = new();
+    private readonly Dictionary<string, string> _leases = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> _uniqueMacs = new();
 
     public UserReportWindow(string userName) : this(userName, @"d:\LUXCARD\desktop\user-manager\sqldb")
     {
     }
 
-    public UserReportWindow(string userName, string dbPath)
+    public UserReportWindow(string userName, string dbPath, string routerName = "—", Dictionary<string, string>? leases = null)
     {
         InitializeComponent();
         QuestPDF.Settings.License = LicenseType.Community;
@@ -43,6 +46,14 @@ public partial class UserReportWindow : Window
         _userName = userName;
         TxtUserName.Text = userName;
         _dbPath = dbPath;
+        _routerName = routerName;
+        if (leases != null)
+        {
+            foreach (var kv in leases)
+            {
+                _leases[kv.Key] = kv.Value;
+            }
+        }
 
         LoadData();
     }
@@ -215,8 +226,13 @@ public partial class UserReportWindow : Window
                         _sessionsList.Add(item);
                     }
                     _sessionsCount = $"{sCount} جلسة";
+                    _uniqueMacs.Clear();
                     if (ipSet.Count > 0) _ips = string.Join("\n", ipSet);
-                    if (macSet.Count > 0) _macs = string.Join("\n", macSet);
+                    if (macSet.Count > 0)
+                    {
+                        _uniqueMacs.AddRange(macSet);
+                        _macs = string.Join("\n", macSet);
+                    }
                 }
             }
 
@@ -296,6 +312,20 @@ public partial class UserReportWindow : Window
         {
             try
             {
+                byte[] logoBytes = null;
+                try
+                {
+                    var uri = new Uri("pack://application:,,,/Lux.Management.Console;component/Resources/img/logo2.png");
+                    var resourceStream = System.Windows.Application.GetResourceStream(uri);
+                    if (resourceStream != null)
+                    {
+                        using var ms = new MemoryStream();
+                        resourceStream.Stream.CopyTo(ms);
+                        logoBytes = ms.ToArray();
+                    }
+                }
+                catch {}
+
                 Document.Create(container =>
                 {
                     container.Page(page =>
@@ -309,16 +339,24 @@ public partial class UserReportWindow : Window
                         // الهيدر (ترويسة التقرير)
                         page.Header().BorderBottom(2).BorderColor(Colors.Blue.Lighten2).PaddingBottom(10).Row(row =>
                         {
-                            row.RelativeItem().Column(col =>
+                            row.RelativeItem().Row(r =>
                             {
-                                col.Item().Text("Alpha Manager").FontSize(26).FontColor(Colors.Blue.Darken2).Bold();
-                                col.Item().Text("نظام إدارة شبكات الإنترنت - ISP Operations Center").FontSize(12).FontColor(Colors.Grey.Darken1);
+                                if (logoBytes != null)
+                                {
+                                    r.ConstantItem(50).Height(50).Image(logoBytes);
+                                }
+                                r.RelativeItem().PaddingRight(10).Column(col =>
+                                {
+                                    col.Item().Text("Alpha Manager").FontSize(24).FontColor(Colors.Blue.Darken2).Bold();
+                                    col.Item().Text("نظام إدارة شبكات الإنترنت").FontSize(11).FontColor(Colors.Grey.Darken1);
+                                });
                             });
-                            row.ConstantItem(150).AlignRight().Column(col =>
+                            
+                            row.ConstantItem(180).AlignLeft().Column(colLeft =>
                             {
-                                col.Item().Text($"تاريخ التقرير: {DateTime.Now:yyyy-MM-dd}").FontSize(10).FontColor(Colors.Grey.Darken2);
-                                col.Item().Text($"وقت الإصدار: {DateTime.Now:HH:mm:ss}").FontSize(10).FontColor(Colors.Grey.Darken2);
-                                col.Item().Text("النظام: الفا مانجر Alpha Manager").FontSize(10).FontColor(Colors.Blue.Medium);
+                                colLeft.Item().Text($"تاريخ التقرير: {DateTime.Now:yyyy-MM-dd}").FontSize(10).FontColor(Colors.Grey.Darken2);
+                                colLeft.Item().Text($"وقت الإصدار: {DateTime.Now:HH:mm:ss}").FontSize(10).FontColor(Colors.Grey.Darken2);
+                                colLeft.Item().Text($"اسم الشبكة: {_routerName}").FontSize(10).FontColor(Colors.Grey.Darken2);
                             });
                         });
 
@@ -330,21 +368,57 @@ public partial class UserReportWindow : Window
                             col.Item().PaddingBottom(10).AlignCenter().Text($"تقرير المشترك المٌفصّل: {_userName}")
                                 .FontSize(22).Bold().FontColor(Colors.Blue.Darken3);
 
-                            // القسم الأول: معلومات عامة
-                            col.Item().Background(Colors.Grey.Lighten4).Padding(15).Column(inner =>
+                            // القسم الأول: معلومات عامة (يمين) + موديل الجهاز المتوقع (يسار)
+                            col.Item().Row(mainRow =>
                             {
-                                inner.Item().PaddingBottom(10).Text("معلومات البطاقة الأساسية").FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
-                                inner.Item().Table(table =>
+                                // العمود الأيمن (معلومات الكرت الأساسية)
+                                mainRow.RelativeItem(3).Column(rightCol =>
                                 {
-                                    table.ColumnsDefinition(c => { c.RelativeColumn(); c.RelativeColumn(); });
-                                    table.Cell().PaddingBottom(5).Text($"الباقة المشتركة: {_profile}").FontSize(13).FontColor(Colors.Grey.Darken3);
-                                    table.Cell().PaddingBottom(5).Text($"حالة الكرت: {_status}").FontSize(13).FontColor(Colors.Grey.Darken3);
-                                    table.Cell().Text($"تاريخ التسجيل: {_regDate}").FontSize(13).FontColor(Colors.Grey.Darken3);
-                                    table.Cell().Text($"آخر ظهور: {_lastSeen}").FontSize(13).FontColor(Colors.Grey.Darken3);
+                                    rightCol.Item().Background(Colors.Grey.Lighten4).Padding(15).Column(inner =>
+                                    {
+                                        inner.Item().PaddingBottom(10).Text("معلومات البطاقة الأساسية").FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
+                                        inner.Item().Table(table =>
+                                        {
+                                            table.ColumnsDefinition(c => { c.RelativeColumn(); c.RelativeColumn(); });
+                                            table.Cell().PaddingBottom(5).Text($"الباقة المشتركة: {_profile}").FontSize(13).FontColor(Colors.Grey.Darken3);
+                                            table.Cell().PaddingBottom(5).Text($"حالة الكرت: {_status}").FontSize(13).FontColor(Colors.Grey.Darken3);
+                                            table.Cell().Text($"تاريخ التسجيل: {_regDate}").FontSize(13).FontColor(Colors.Grey.Darken3);
+                                            table.Cell().Text($"آخر ظهور: {_lastSeen}").FontSize(13).FontColor(Colors.Grey.Darken3);
+                                        });
+                                    });
+                                });
+
+                                // مسافة فاصلة بين العمودين
+                                mainRow.ConstantItem(15);
+
+                                // العمود الأيسر (موديل الجهاز المتوقع)
+                                mainRow.RelativeItem(2).Column(leftCol =>
+                                {
+                                    leftCol.Item().Background(Colors.Grey.Lighten4).Padding(15).Column(inner =>
+                                    {
+                                        inner.Item().PaddingBottom(10).Text("موديل الجهاز المتوقع").FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
+                                        
+                                        if (_uniqueMacs.Count > 0)
+                                        {
+                                            foreach (var mac in _uniqueMacs)
+                                            {
+                                                var model = GetDeviceModelFromMac(mac);
+                                                inner.Item().PaddingBottom(12).Column(deviceCol =>
+                                                {
+                                                    deviceCol.Item().Text(mac).FontSize(10).FontColor(Colors.Grey.Darken2);
+                                                    deviceCol.Item().Text(model != "—" ? model : "غير محدد").FontSize(13).Bold().FontColor(Colors.Blue.Darken3);
+                                                });
+                                            }
+                                        }
+                                        else
+                                        {
+                                            inner.Item().Text("لا توجد عناوين MAC مسجلة").FontSize(12).FontColor(Colors.Grey.Medium);
+                                        }
+                                    });
                                 });
                             });
 
-                            // القسم الثاني: إحصائيات الاستهلاك
+                            // القسم الثاني: إحصائيات الاستهلاك والبيانات (عرض كامل)
                             col.Item().Background(Colors.Blue.Lighten5).Padding(15).Column(inner =>
                             {
                                 inner.Item().PaddingBottom(10).Text("إحصائيات الاستهلاك والبيانات").FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
@@ -444,12 +518,103 @@ public partial class UserReportWindow : Window
                 .GeneratePdf(dialog.FileName);
 
                 MessageBox.Show("تم حفظ التقرير بنجاح!", "نجاح", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                try
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = dialog.FileName,
+                        UseShellExecute = true
+                    });
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"تعذر فتح ملف PDF تلقائياً: {ex.Message}", "تنبيه", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"حدث خطأ أثناء إنشاء PDF: {ex.Message}", "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+    }
+
+    private string GetDeviceModelFromMac(string mac)
+    {
+        if (string.IsNullOrEmpty(mac) || mac == "—" || mac.Length < 8) return "—";
+        
+        // 1. البحث في الليسس الحية أولاً
+        if (_leases.TryGetValue(mac, out var hostName) && !string.IsNullOrWhiteSpace(hostName))
+        {
+            return hostName;
+        }
+
+        // 2. إذا لم يوجد، نستخدم البادئات (OUI)
+        var cleanMac = mac.Replace(":", "").Replace("-", "").ToUpper();
+        if (cleanMac.Length < 6) return "—";
+        
+        var prefix = cleanMac.Substring(0, 6);
+        
+        // بادئات آبل Apple
+        if (new[] {
+            "001CB3", "002500", "00254B", "FCFC48", "000393", "000502", "000A27", "000A95", "0010FA", "001451", "0016CB", "0017F2", "0019E3", "001B63", "001D4F", "001E52", "001EC2", "001F5B", "001FF3", "0021E9",
+            "002241", "002312", "002332", "00236C", "002436", "002608", "00264A", "0026B0", "0026BB", "18AF61", "24A074", "28E347", "34159E", "38CADA", "3C0754", "3CD0F8", "403004", "40D32D", "442A60", "444C0C",
+            "48437C", "48D705", "4C38CC", "4C8D79", "50EAE5", "542696", "542A1B", "5433CB", "5855CA", "5C5948", "5C95AE", "5C97F3", "600308", "60334B", "609217", "60A44C", "60C547", "60FACD", "64200C", "6470EC",
+            "64B9E8", "64E682", "680908", "685B35", "68A86D", "68AE20", "68D93C", "6C3E6D", "6C4008", "6C709F", "6C8DC1", "6C96CF", "6CAB31", "701124", "7014A6", "703EAC", "705681", "70700D", "70A2B3", "70CD60",
+            "70DEE2", "748114", "74A34A", "74B587", "74E1B6", "74E2E5", "74F612", "7831C1", "783A84", "784F43", "787B8A", "78886D", "789F70", "78A3E4", "78FD94", "7C11BE", "7C6D62", "7CC3A1", "7CC537", "7CD1C3",
+            "7CF90E", "80006E", "804971", "805A04", "80929F", "80B655", "80EA96", "842999", "843835", "84788B", "848E0C", "84A134", "84B153", "84FCFE", "881FA1", "88308A", "885395", "8863DF", "886417", "88C663",
+            "8C2937", "8C2DAA", "8C5877", "8C7A3D", "8C7C92", "8C8590", "8CFABA", "9027E4", "9035EB", "907240", "90840D", "90B21F", "90C1C6", "90E17B", "90FD03", "949426", "94E96A", "94E979", "94F6A3", "9801A7",
+            "985AEB", "98B8E3", "98D6BB", "98E0D9", "98FE94", "9C04EB", "9C207B", "9C35EB", "9C4F5E", "9C8B7F", "9CE65E", "9CF387", "A01828", "A03B8F", "A0999B", "A0EDCD", "A43135", "A45E60", "A46706", "A4772E",
+            "A4B197", "A4C361", "A4D18C", "A4D1D2", "A4E975", "A4F1E8", "A82066", "A85B78", "A8667F", "A886DD", "A88808", "A8967A", "A8BBCF", "A8FAD8", "AC162D", "AC293A", "AC3C0B", "AC7F3E", "AC87A3", "ACBC32",
+            "ACCF85", "ACE010", "ACFDEC", "B019C6", "B03495", "B0481A", "B065BD", "B0702D", "B09FBA", "B0C554", "B418D1", "B48B19", "B49CDF", "B4F065", "B4F61C", "B8098A", "B8782E", "B88D12", "B8C75D", "B8E856",
+            "B8F6B1", "BC3BAF", "BC4CC4", "BC52B7", "BC5436", "BC6778", "BC9FEF", "BCA920", "BCEC5D", "BCFED9", "C01ADA", "C06394", "C0847A", "C09F42", "C0A0BB", "C0D012", "C0E862", "C0F2FB", "C42C03", "C48508",
+            "C4E90F", "C81EE7", "C82A14", "C8334B", "C869CD", "C88550", "C8B5B7", "C8D2C4", "C8E0EB", "CC088D", "CC20E8", "CC25EF", "CC29F5", "CC4463", "CC52AF", "CC785F", "CCCC81", "D0034B", "D022BE", "D023DB",
+            "D02599", "D03311", "D04F7E", "D0817A", "D0A637", "D0C5F3", "D0D2B9", "D0E140", "D4258B", "D435E8", "D4619D", "D4909C", "D49A20", "D4A33D", "D4DCCD", "D4F46F", "D8004D", "D81C79", "D83062", "D89695",
+            "D8A25E", "D8BB2C", "D8CF9C", "D8D1CB", "DC2B61", "DC3714", "DC415F", "DC86D8", "DCA4CA", "DCD3A2", "E05F45", "E06678", "E0B52F", "E0B9BA", "E0C97A", "E0CB4E", "E0DB55", "E0F5C6", "E0F847", "E425E9",
+            "E450EB", "E48B7F", "E498D5", "E49ADC", "E4B2FB", "E4C72F", "E4E4AB", "E8040B", "E80688", "E8802E", "E88D28", "E8B1FC", "EC3586", "EC852F", "ECADB8", "F01898", "F02475", "F0761C", "F099BF", "F0A44A",
+            "F0B479", "F0C1F1", "F0DBE2", "F0DCE2", "F0F612", "F409D8", "F41B5F", "F431C3", "F437B7", "F45C89", "F4F15A", "F4F951", "F80377", "F81EDF", "F82793", "F8387F", "F86214", "F88FCA", "F8E079", "FC253F",
+            "FC7516", "FCD815", "FCE998", "FCFC48"
+        }.Contains(prefix)) return "Apple 🍏";
+
+        // بادئات سامسونج Samsung
+        if (new[] {
+            "0000F0", "000278", "0007AB", "0009A7", "001247", "0012FB", "0015B9", "001632", "00166C", "0017C9", "0017D5", "0018AF", "001A8A", "001CC6", "001D25", "001E7D", "001FCC", "002119", "0021D2", "0022F5",
+            "00233D", "0023D6", "002490", "002538", "002637", "007A93", "04180F", "04FEA1", "080027", "083E8E", "08ECA9", "08FC88", "0C1420", "0C54A5", "0C715D", "0C8910", "0C9152", "0CDFA4", "103047", "1077B1",
+            "10D07A", "10F96F", "1436C6", "147DC5", "148FC6", "14F43E", "181E78", "18227E", "183BD2", "184617", "185936", "187A93", "1883BF", "189EFC", "1C35A6", "1C5A3E", "1C62B8", "1CE286", "2047ED", "20D5BF",
+            "20E52A", "241B7A", "244B03", "2473F2", "24D3F2", "24E314", "24EC99", "24FCE5", "281878", "2827BF", "287A93", "28987B", "28A183", "28B2BD", "28C2DD", "28CC01", "28E02C", "2C0E3D", "2C26C5", "2C3033",
+            "2C4401", "2C5A0F", "2CD05A", "30074D", "301966", "30636B", "307512", "3078C8", "3085A9", "30918F", "30A8DB", "30C7AE", "30D855", "342387", "342D0D", "34A395", "34A8EB", "34C059", "34E6AD", "34FC95",
+            "380197", "382DD1", "3895F6", "38A4ED", "3C5A37", "3C6238", "3C6A2C", "3C8BCD", "3CE1A1", "3CF7A4", "400E85", "401B5F", "40270B", "4035E5", "40516C", "406C8F", "4083DE", "4098AD", "40CCF4", "40D855",
+            "40FC89", "445072", "44650D", "4480EB", "44913C", "44F43E", "44F459", "482CA0", "483FE9", "484487", "4844F7", "4852B5", "485A3F", "48C1AC", "48D63D", "4C1AC0", "4C3C16", "4C4E35", "4C55CC", "4C7C5F",
+            "4CBCA5", "4CD1A1", "4CE676", "5001D9", "500731", "501878", "502E5C", "503275", "505025", "5056A8", "508569", "50A4C8", "50CCF8", "50F5DA", "5440AD", "544415", "54880E", "549A11", "54B121", "54C121",
+            "54E4BD", "54FA3E", "580876", "581F28", "58A2F5", "58C876", "58D9C5", "58E28F", "58F10F", "5C0A5B", "5C3A45", "5C70A3", "5CA86A", "5CC5D4", "5CF8A1", "600194", "601D91", "6021C0", "604415", "606D3C",
+            "60AF6D", "60D0A9", "60E327", "60E701", "60F189", "642149", "646E97", "647791", "64A769", "64B0A6", "64C2DE", "64C667", "64C6EC", "64D4BD", "64E7D8", "64FBCC", "680571", "681878", "683A7E", "683DB5",
+            "687A93", "689CE2", "68C44D", "68DBF2", "6C2990", "6C71D9", "6C8336", "6C8DF1", "6C9AED", "6CA75F", "6CF15E", "702C1F", "703EB5", "704D7B", "70700D", "708D09", "70A8E3", "70B035", "70B121", "70D4F2",
+            "70D690", "7405A5", "74458A", "745A6A", "745E1C", "747990", "749A3C", "74B9EB", "74D02B", "74D435", "781DBC", "7825AD", "7831C1", "783F15", "78471D", "784B87", "78521A", "785AC8", "787A93", "789ED0",
+            "78A82F", "78ABBB", "78D6F0", "78E7D1", "78F7BE", "7C03D8", "7C38AD", "7C78B2", "7CA7B5", "7CC709", "7CD30A", "7CF7CF", "8018A7", "805AB4", "805E4F", "80656D", "80B655", "80CF41", "80E650", "84119E",
+            "8425DB", "843838", "845181", "8455A5", "84742A", "84871C", "84C121", "84DB2F", "84E0F4", "84F0EC", "84FCE6", "88124E", "88308A", "88797E", "88C9D0", "88D7F6", "88E603", "8C1ABF", "8C2DA5", "8C3AE3",
+            "8C7712", "8CC8CD", "8CF5A3", "9000DB", "90187C", "906549", "907F61", "908C50", "90B686", "90C682", "90D0ED", "90E7C4", "90F15C", "90FDAC", "9405BB", "94103F", "94350A", "94652D", "946EB5", "948BC1",
+            "94B10A", "94E979", "94F4AC", "94FB29", "98002A", "980C82", "980D2E", "9810E8", "984FEE", "9852B5", "988389", "989C57", "98B3B1", "98E7F5", "98F170", "98FFD0", "9C0298", "9C0FC4", "9C1FDD", "9C2A70",
+            "9C3AAF", "9C431E", "9C6C15", "9CE6E7", "9CFC01", "A00798", "A01828", "A0270A", "A0698E", "A07591", "A0821F", "A091C8", "A0B4F5", "A0C5F2", "A0C9A0", "A0CBFD", "A0E6F8", "A408EA", "A4370B", "A45C27",
+            "A47076", "A47733", "A49A58", "A4D1D2", "A4E975", "A80600", "A816D0", "A82279", "A82BB9", "A854B2", "A85B78", "A87B39", "A887ED", "A89FBA", "A8C009", "A8D578", "A8E3EE", "AC1B1C", "AC3A7A", "AC5775",
+            "AC5F3E", "AC7A4D", "ACAFB9", "ACC115", "ACE215", "B01401", "B05ADA", "B0702D", "B0C4E7", "B0D59D", "B0EC71", "B407F9", "B41C30", "B4430D", "B4527D", "B46293", "B479A7", "B47C9C", "B8098A", "B85001",
+            "B857D8", "B86CE8", "B8782E", "B8E856", "B8F6B1", "BC14EF", "BC15AC", "BC20A4", "BC4760", "BC5436", "BC720D", "BC7CB0", "BCA58D", "BCA8A6", "BCB32B", "BCD11F", "BCF4D4", "C0143D", "C07E19", "C09727",
+            "C0A13E", "C0BDC8", "C0D012", "C0F8DA", "C42C03", "C43A35", "C4438F", "C46E13", "C4731E", "C48508", "C49A02", "C4D0E3", "C4FC56", "C81451", "C87DF3", "C88550", "C8979F", "C8C2C4", "C8D2C4", "C8F733",
+            "CC07AB", "CC3A61", "CCA3E2", "CCB8A8", "CCC3EA", "CCF3A5", "D0034B", "D017C2", "D022BE", "D03742", "D059E4", "D087E2", "D0A225", "D0C5F3", "D0D2B9", "D0E140", "D428B2", "D4389C", "D487D8", "D4909C",
+            "D49EC0", "D4A33D", "D4C1FC", "D4E63E", "D80F99", "D831CF", "D85775", "D890E8", "D8A25E", "D8B190", "D8C0A6", "D8D1CB", "D8E56D", "DC2B61", "DC3A5E", "DC712F", "DC74A5", "DC85DE", "DCA8EB", "DCC3A2",
+            "E05163", "E0AA96", "E0B52F", "E0B9BA", "E0C97A", "E0D083", "E41218", "E43022", "E44790", "E470B8", "E47CF9", "E4907A", "E4B2FB", "E4E0A6", "E8039A", "E807BF", "E83A12", "E8508B", "E89309", "E8E5D6",
+            "EC1F72", "EC3586", "EC852F", "ECE555", "F008F1", "F01898", "F02475", "F025B7", "F05B7B", "F05D8C", "F06BCA", "F0728F", "F0A225", "F0A44A", "F0B479", "F0C1F1", "F0E77E", "F0EB14", "F0ECAF", "F0F57E",
+            "F0F612", "F409D8", "F44B2A", "F45C89", "F47B5E", "F49EC2", "F4A810", "F4D488", "F4F951", "F80473", "F81EDF", "F82793", "F8387F", "F884F2", "F8CFC5", "FC1910", "FC7516", "FC8F90", "FCA135", "FCC2DE",
+            "FCE998"
+        }.Contains(prefix)) return "Samsung 📱";
+
+        // بادئات شاومي Xiaomi
+        if (new[] {
+            "009EC8", "185936", "286C07", "3480B3", "3CBD3E", "50642B", "584498", "640980", "745A25", "7C1DD9", "8035C1", "8CBEBE", "9C2EA1", "ACC1EE", "B03829", "C40BCB", "E446DA", "F023B9", "FC1990", "00EC0A",
+            "1C5216", "28E31F", "38A28C", "3CA82A", "4C11AE", "50EC50", "58A2B7", "64B5C6", "7811DC", "7CA7B0", "80AD1A", "90A4DE", "9CF03C", "B03CA7", "C80E14", "E49C20", "F0B4D2", "FC63F6", "0C29BB", "2034FB",
+            "30107A", "4459E3", "4CB9EA", "5448AD", "5CE0F6", "687AB4", "781F4A", "7CF90E", "80EACA", "9810E8", "A45055", "A89CED", "B43A28", "CC78AB", "EC6C9F", "F45C89", "FCA89A"
+        }.Contains(prefix)) return "Xiaomi 📱";
+
+        return "—";
     }
 }
 

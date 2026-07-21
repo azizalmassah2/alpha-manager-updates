@@ -86,5 +86,15 @@ namespace MikroTikVoucherPrinter.Application.Interfaces
         /// يقوم بتحميل قاعدة بيانات User Manager وحفظها في الكاش الموحد فقط (سريع جداً بدون مزامنة EF Core)
         /// </summary>
         Task DownloadAndCacheDbAsync(Guid routerId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// يجلب قائمة عناوين MAC مع الـ HostName المقابل لها من الـ Leases للراوتر المحدد.
+        /// </summary>
+        Task<System.Collections.Generic.Dictionary<string, string>> GetDhcpLeasesAsync(Guid routerId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// يجلب عدد المستخدمين النشطين (Hotspot + PPP) في الوقت الحقيقي من الراوتر المحدد.
+        /// </summary>
+        Task<int> GetActiveUsersCountAsync(Guid routerId, CancellationToken cancellationToken = default);
     }
 }

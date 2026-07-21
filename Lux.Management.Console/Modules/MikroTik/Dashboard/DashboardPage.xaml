@@ -37,7 +37,7 @@
                     </Grid>
                 </Border>
 
-                <!-- Online Devices Card -->
+                <!-- Active Users Card -->
                 <Border Style="{StaticResource ModernCardStyle}" Margin="0,0,16,16" BorderBrush="{DynamicResource SuccessBrush}" BorderThickness="0,0,0,4">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -45,10 +45,28 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                            <TextBlock Text="المشتركون النشطون" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding OnlineDevices}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}" Margin="0,4,0,0"/>
+                            <TextBlock Text="الاكتيف (Active)" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" FontWeight="SemiBold"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0" VerticalAlignment="Bottom">
+                                <TextBlock Text="{Binding LiveActiveUsers}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Bottom"/>
+                                <TextBlock Text="{Binding LiveActiveDetails}" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Bottom" Margin="10,0,0,5" FontWeight="Normal"/>
+                            </StackPanel>
                         </StackPanel>
                         <TextBlock Grid.Column="1" Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="28" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center" Margin="8,0,0,0" Opacity="0.8"/>
+                    </Grid>
+                </Border>
+
+                <!-- Hosts Card -->
+                <Border Style="{StaticResource ModernCardStyle}" Margin="0,0,16,16" BorderBrush="{DynamicResource InfoBrush}" BorderThickness="0,0,0,4">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="الهوست (Hosts)" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding LiveHosts}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource InfoBrush}" Margin="0,4,0,0"/>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="&#xE8F1;" FontFamily="Segoe MDL2 Assets" FontSize="28" Foreground="{DynamicResource InfoBrush}" VerticalAlignment="Center" Margin="8,0,0,0" Opacity="0.8"/>
                     </Grid>
                 </Border>
 

@@ -11,3 +11,15 @@ public interface IActivatable
     /// </summary>
     Task ActivateAsync();
 }
+
+/// <summary>
+/// واجهة تُطبَّق على ViewModels التي تحتاج إلى إيقاف موارد عند مغادرة الشاشة.
+/// مثال: إيقاف timer polling عند الانتقال لشاشة أخرى.
+/// </summary>
+public interface IDeactivatable
+{
+    /// <summary>
+    /// يُستدعى عند مغادرة الشاشة — لإيقاف الـ polling أو تحرير الموارد.
+    /// </summary>
+    void Deactivate();
+}

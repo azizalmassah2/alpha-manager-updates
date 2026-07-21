@@ -381,8 +381,22 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
     public IAsyncRelayCommand ExportSelectedCommand { get; }
 
     public IAsyncRelayCommand<VoucherDto> ShowSessionsCommand { get; }
+    public IAsyncRelayCommand<VoucherDto> ShowVoucherDetailsCommand { get; }
     public IRelayCommand<VoucherDto> CopyUsernameCommand { get; }
     public IRelayCommand<VoucherDto> CopyPasswordCommand { get; }
+
+    private VoucherDto? _selectedVoucher;
+    public VoucherDto? SelectedVoucher
+    {
+        get => _selectedVoucher;
+        set
+        {
+            if (SetProperty(ref _selectedVoucher, value))
+            {
+                ShowVoucherDetailsCommand.NotifyCanExecuteChanged();
+            }
+        }
+    }
 
     // لتحديد الأعداد محلياً من شاشة code-behind
     private int _selectedCount;
@@ -406,6 +420,7 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
         get => _isAllSelected;
         set => SetProperty(ref _isAllSelected, value);
     }
+
 
     // ══════════════════════════════════════════════════════
     //  المنشئ (Constructor)
@@ -478,6 +493,7 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
         _eventBus.Subscribe<AutoRefreshTriggeredEvent>(this, OnAutoRefreshTriggered);
 
         ShowSessionsCommand = new AsyncRelayCommand<VoucherDto>(ShowSessionsForVoucherAsync, v => v != null);
+        ShowVoucherDetailsCommand = new AsyncRelayCommand<VoucherDto>(ShowVoucherDetailsAsync, v => v != null);
         CopyUsernameCommand = new RelayCommand<VoucherDto>(CopyUsername, v => v != null && !string.IsNullOrEmpty(v.Username));
         CopyPasswordCommand = new RelayCommand<VoucherDto>(CopyPassword, v => v != null);
 
@@ -1321,6 +1337,46 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
                 _notificationService.ShowInformation(text, $"جلسات: {v.Username}");
             });
         }, "جاري جلب الجلسات النشطة...");
+    }
+
+    private async Task ShowVoucherDetailsAsync(VoucherDto? v)
+    {
+        if (v == null || _activeRouterContext.CurrentRouter == null) return;
+        var routerId = _activeRouterContext.CurrentRouter.Id;
+        
+        await ExecuteBusyAsync(async (token) =>
+        {
+            var dbPath = _backgroundImportManager.GetCachedCleanDbPath(routerId);
+            if (string.IsNullOrEmpty(dbPath) || !System.IO.File.Exists(dbPath))
+            {
+                await _backgroundImportManager.DownloadAndCacheDbAsync(routerId, token);
+                dbPath = _backgroundImportManager.GetCachedCleanDbPath(routerId);
+            }
+
+            if (string.IsNullOrEmpty(dbPath) || !System.IO.File.Exists(dbPath))
+            {
+                await _dispatcherService.InvokeAsync(() =>
+                {
+                    _notificationService.ShowWarning("لم يتم العثور على قاعدة بيانات اليوزر منجر للراوتر الحالي. الرجاء المزامنة أولاً.");
+                });
+                return;
+            }
+
+            Dictionary<string, string>? leases = null;
+            try
+            {
+                leases = await _backgroundImportManager.GetDhcpLeasesAsync(routerId, token);
+            }
+            catch { }
+
+            await _dispatcherService.InvokeAsync(() =>
+            {
+                var routerName = _activeRouterContext.CurrentRouter?.DisplayName ?? "—";
+                var window = new Views.UserReportWindow(v.Username, dbPath, routerName, leases);
+                window.Owner = System.Windows.Application.Current.MainWindow;
+                window.ShowDialog();
+            });
+        }, "جاري جلب تفاصيل الجلسات والبيانات...");
     }
 
     private void CopyUsername(VoucherDto? v)

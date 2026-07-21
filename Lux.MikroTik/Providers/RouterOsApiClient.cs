@@ -130,6 +130,13 @@ public class RouterOsApiClient : IRouterOsApiClient, IDisposable
                 var cmd = parameters == null || parameters.Length == 0 
                     ? _connection.CreateCommand(command) 
                     : _connection.CreateCommandAndParameters(command, parameters);
+                
+                if (command.StartsWith("/tool/user-manager", StringComparison.OrdinalIgnoreCase) &&
+                    !command.EndsWith("/print", StringComparison.OrdinalIgnoreCase))
+                {
+                    cmd.DefaultParameterFormat = tik4net.TikCommandParameterFormat.NameValue;
+                }
+                
                 return cmd.ExecuteList();
             });
         }
@@ -145,6 +152,13 @@ public class RouterOsApiClient : IRouterOsApiClient, IDisposable
                         var cmd = parameters == null || parameters.Length == 0 
                             ? _connection.CreateCommand(command) 
                             : _connection.CreateCommandAndParameters(command, parameters);
+                        
+                        if (command.StartsWith("/tool/user-manager", StringComparison.OrdinalIgnoreCase) &&
+                            !command.EndsWith("/print", StringComparison.OrdinalIgnoreCase))
+                        {
+                            cmd.DefaultParameterFormat = tik4net.TikCommandParameterFormat.NameValue;
+                        }
+                        
                         return cmd.ExecuteList();
                     });
                 }

@@ -1,8 +1,23 @@
 {
   "schemaVersion": 1,
-  "lastUpdated": "2026-07-19T06:57:00Z",
+  "lastUpdated": "2026-07-21T13:02:00Z",
   "generatedBy": "Alpha Manager Build System",
   "data": [
+    {
+      "version": "2.0.4",
+      "buildNumber": 204,
+      "releaseDate": "2026-07-21",
+      "summary": "حل مشاكل إضافة وحذف الباقات على راوترات المايكروتيك User Manager v6 واستقرار قاعدة بيانات SQLite.",
+      "changes": {
+        "additions": [],
+        "improvements": [],
+        "fixes": [
+          "حل مشكلة إضافة وحذف الباقات على راوترات المايكروتيك ذات نظام User Manager v6 بشكل نهائي.",
+          "معالجة استثناءات ترقية مخطط قاعدة البيانات SQLite لتجنب الأخطاء عند الإقلاع.",
+          "إصلاح فحص وتتبع تشغيل مصحح الأخطاء لضمان استقرار تشغيل البرنامج."
+        ]
+      }
+    },
     {
       "version": "2.0.3",
       "buildNumber": 203,

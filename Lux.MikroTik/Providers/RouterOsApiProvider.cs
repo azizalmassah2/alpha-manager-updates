@@ -92,6 +92,36 @@ public class RouterOsApiProvider : IRouterOsProvider, IRouterOsTextProvider
         }
         catch (Exception ex)
         {
+            try
+            {
+                var errorPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "lux_command_errors.txt");
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ERROR executing command: {command.Command}");
+                if (command.Parameters != null)
+                {
+                    foreach (var p in command.Parameters)
+                    {
+                        sb.AppendLine($"  Param: {p.Key} = {p.Value}");
+                    }
+                }
+                if (command.Arguments != null)
+                {
+                    sb.AppendLine($"  Args: {string.Join(" ", command.Arguments)}");
+                }
+                sb.AppendLine($"Exception: {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    sb.AppendLine($"Inner Exception: {ex.InnerException.Message}");
+                    if (ex.InnerException.InnerException != null)
+                    {
+                        sb.AppendLine($"Inner-Inner Exception: {ex.InnerException.InnerException.Message}");
+                    }
+                }
+                sb.AppendLine(ex.StackTrace);
+                sb.AppendLine("--------------------------------------------------");
+                System.IO.File.AppendAllText(errorPath, sb.ToString());
+            }
+            catch {}
             throw new MikroTikCommandException($"Command execution failed: {ex.Message}", ex);
         }
     }

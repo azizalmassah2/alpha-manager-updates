@@ -222,6 +222,7 @@
                         <Button Content="حذف المحدد  🗑️" Command="{Binding DeleteSelectedCommand}" Style="{DynamicResource ButtonDanger}" Height="28" Padding="10,0" FontSize="11" Margin="0,0,6,0" Visibility="{Binding IsNotRecycleBinActive, Converter={StaticResource BoolToVis}}"/>
                         <Button Content="استعادة المحدد  ↻" Command="{Binding RestoreSelectedCommand}" Style="{DynamicResource ButtonPrimary}" Height="28" Padding="10,0" FontSize="11" Margin="0,0,6,0" Visibility="{Binding IsRecycleBinActive, Converter={StaticResource BoolToVis}}"/>
                         <Button Content="إعادة محاولة المزامنة  ⚠" Command="{Binding RetryFailedCommand}" Style="{DynamicResource ButtonDefault}" Height="28" Padding="10,0" FontSize="11" Margin="0,0,6,0" Visibility="{Binding HasFailedSyncs, Converter={StaticResource BoolToVis}}"/>
+                        <Button Content="تفاصيل الكرت  📄" Command="{Binding ShowVoucherDetailsCommand}" CommandParameter="{Binding SelectedVoucher}" Style="{DynamicResource ButtonDefault}" Height="28" Padding="10,0" FontSize="11" Margin="0,0,6,0"/>
                         <Button Content="مزامنة فورية  ↻" Command="{Binding RefreshCommand}" Style="{DynamicResource ButtonDefault}" Height="28" Padding="10,0" FontSize="11"/>
                     </StackPanel>
 
@@ -512,6 +513,7 @@
                               VerticalAlignment="Stretch"
                               HorizontalAlignment="Stretch"
                               ItemsSource="{Binding Vouchers}" 
+                              SelectedItem="{Binding SelectedVoucher, Mode=TwoWay}"
                               hc:DataGridAttach.ShowRowNumber="True"
                               SelectionMode="Extended"
                               SelectionChanged="VouchersDataGrid_SelectionChanged"
@@ -605,8 +607,8 @@
                                                 Click="BtnRowMenu_Click">
                                             <Button.ContextMenu>
                                                 <ContextMenu>
-                                                    <MenuItem Header="عرض التفاصيل" 
-                                                              Command="{Binding DataContext.ShowSessionsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                                    <MenuItem Header="تقرير الكرت التفصيلي  📄" 
+                                                              Command="{Binding DataContext.ShowVoucherDetailsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
                                                               CommandParameter="{Binding}"/>
                                                     <MenuItem Header="نسخ اسم المستخدم" 
                                                               Command="{Binding DataContext.CopyUsernameCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 

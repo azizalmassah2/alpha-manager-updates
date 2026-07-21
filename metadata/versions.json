@@ -1,8 +1,29 @@
 {
   "schemaVersion": 1,
-  "lastUpdated": "2026-07-19T06:57:00Z",
+  "lastUpdated": "2026-07-21T13:02:00Z",
   "generatedBy": "Alpha Manager Build System",
   "data": [
+    {
+      "version": "2.0.4",
+      "buildNumber": 204,
+      "releaseDate": "2026-07-21",
+      "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.4/AlphaManagerSetup_v2.0.4.exe",
+      "fileSize": 86441820,
+      "sha256": "6f9fd63ad5b05338301dbd5d745c232e96a749514b91eb4471c188b69443716e",
+      "supportStatus": "active",
+      "category": "Maintenance Update",
+      "releaseNotesSummary": "حل مشاكل إدارة الباقات على User Manager v6 واستقرار قاعدة البيانات SQLite.",
+      "releaseNotes": {
+        "additions": [],
+        "improvements": [],
+        "fixes": [
+          "حل مشكلة إضافة وحذف الباقات على راوترات المايكروتيك ذات نظام User Manager v6 بشكل نهائي.",
+          "معالجة استثناءات ترقية مخطط قاعدة البيانات SQLite لتجنب الأخطاء عند الإقلاع.",
+          "إصلاح فحص وتتبع تشغيل مصحح الأخطاء لضمان استقرار تشغيل البرنامج."
+        ],
+        "security": []
+      }
+    },
     {
       "version": "2.0.3",
       "buildNumber": 203,
@@ -10,7 +31,7 @@
       "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.3/AlphaManagerSetup_v2.0.3.exe",
       "fileSize": 60530612,
       "sha256": "f5d20094d037659008434305a944a2f32165f4a0b2cd3c3fb34d437bbee7d4bc",
-      "supportStatus": "active",
+      "supportStatus": "deprecated",
       "category": "Security Update",
       "releaseNotesSummary": "تحصين كامل للتطبيق ضد التلاعب والهندسة العكسية مع تفعيل التحقق الرقمي RSA.",
       "releaseNotes": {

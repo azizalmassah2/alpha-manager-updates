@@ -387,17 +387,44 @@ public partial class App : Application
                     );
                 ");
 
-                try
+                // دالة مساعدة لإضافة الأعمدة بأمان دون توليد استثناءات SQLite
+                async Task AddColumnIfNotExistsAsync(string tableName, string columnName, string columnDefinition)
                 {
-                    await platformDb.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""BroadcastingDevices"" ADD COLUMN ""IsDeleted"" INTEGER NOT NULL DEFAULT 0;");
+                    try
+                    {
+                        var conn = platformDb.Database.GetDbConnection();
+                        bool opened = false;
+                        if (conn.State != System.Data.ConnectionState.Open)
+                        {
+                            await conn.OpenAsync();
+                            opened = true;
+                        }
+                        using (var checkCmd = conn.CreateCommand())
+                        {
+                            checkCmd.CommandText = $"PRAGMA table_info({tableName});";
+                            using (var reader = await checkCmd.ExecuteReaderAsync())
+                            {
+                                while (await reader.ReadAsync())
+                                {
+                                    var name = reader["name"]?.ToString();
+                                    if (string.Equals(name, columnName, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        if (opened) conn.Close();
+                                        return; // العمود موجود بالفعل، تخطي
+                                    }
+                                }
+                            }
+                        }
+                        
+                        await platformDb.Database.ExecuteSqlRawAsync($@"ALTER TABLE ""{tableName}"" ADD COLUMN ""{columnName}"" {columnDefinition};");
+                        if (opened) conn.Close();
+                    }
+                    catch { }
                 }
-                catch { }
 
-                try
-                {
-                    await platformDb.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""BroadcastingDevices"" ADD COLUMN ""RowVersion"" BLOB NULL;");
-                }
-                catch { }
+                await AddColumnIfNotExistsAsync("BroadcastingDevices", "IsDeleted", "INTEGER NOT NULL DEFAULT 0");
+                await AddColumnIfNotExistsAsync("BroadcastingDevices", "RowVersion", "BLOB NULL");
+                await AddColumnIfNotExistsAsync("Routers", "UserManagerDbPath", "TEXT NULL");
 
                 var factory = scope.ServiceProvider.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<MikroTikVoucherPrinter.Infrastructure.Data.LuxCardDbContext>>();
                 await using var dbContext = await factory.CreateDbContextAsync();

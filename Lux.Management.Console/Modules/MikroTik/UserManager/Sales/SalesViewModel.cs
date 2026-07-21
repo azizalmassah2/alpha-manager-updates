@@ -22,6 +22,7 @@ public partial class SalesViewModel : ViewModelBase, IActivatable
     private readonly IActiveRouterContext _activeRouterContext;
     private readonly IVoucherBackgroundImportManager _backgroundImportManager;
     private readonly IDispatcherService _dispatcherService;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<SalesViewModel> _logger;
     private readonly DispatcherTimer _relativeSyncTimer;
     private readonly DispatcherTimer _debounceTimer;
@@ -35,6 +36,19 @@ public partial class SalesViewModel : ViewModelBase, IActivatable
 
     // ── مجموعات البيانات ─────────────────────────────────────────
     public ObservableCollection<SalesRecordDto> SalesRecords { get; } = new();
+
+    private SalesRecordDto? _selectedRecord;
+    public SalesRecordDto? SelectedRecord
+    {
+        get => _selectedRecord;
+        set
+        {
+            if (SetProperty(ref _selectedRecord, value))
+            {
+                ShowVoucherDetailsCommand.NotifyCanExecuteChanged();
+            }
+        }
+    }
 
     // ── الإحصائيات (KPIs) ─────────────────────────────────────────
     [ObservableProperty] private int _todayCount;
@@ -82,6 +96,7 @@ public partial class SalesViewModel : ViewModelBase, IActivatable
     public IRelayCommand SelectTodayCommand { get; }
     public IRelayCommand SelectPreviousDayCommand { get; }
     public IRelayCommand SelectNextDayCommand { get; }
+    public IAsyncRelayCommand ShowVoucherDetailsCommand { get; }
 
     public SalesViewModel(
         ISalesQueryService salesQueryService,
@@ -90,12 +105,14 @@ public partial class SalesViewModel : ViewModelBase, IActivatable
         IDispatcherService dispatcherService,
         IPermissionService permissionService,
         IEventBus eventBus,
+        INotificationService notificationService,
         ILogger<SalesViewModel> logger) : base(permissionService, eventBus)
     {
         _salesQueryService = salesQueryService;
         _activeRouterContext = activeRouterContext;
         _backgroundImportManager = backgroundImportManager;
         _dispatcherService = dispatcherService;
+        _notificationService = notificationService;
         _logger = logger;
 
         Title = "المبيعات والنشاط";
@@ -104,6 +121,7 @@ public partial class SalesViewModel : ViewModelBase, IActivatable
         LoadCommand = new AsyncRelayCommand(InitializeAsync);
         RefreshCommand = new AsyncRelayCommand(RefreshCommandExecuteAsync);
         ClearFilterCommand = new RelayCommand(ClearFilters);
+        ShowVoucherDetailsCommand = new AsyncRelayCommand(ShowVoucherDetailsAsync, () => SelectedRecord != null);
 
         SelectTodayCommand = new RelayCommand(() => SelectedDate = DateTime.Today);
         SelectPreviousDayCommand = new RelayCommand(() => SelectedDate = SelectedDate?.AddDays(-1) ?? DateTime.Today.AddDays(-1));
@@ -463,5 +481,46 @@ public partial class SalesViewModel : ViewModelBase, IActivatable
         {
             RelativeLastSyncText = "غير متوفر";
         }
+    }
+
+    private async Task ShowVoucherDetailsAsync()
+    {
+        if (SelectedRecord == null || _activeRouterContext.CurrentRouter == null) return;
+        var routerId = _activeRouterContext.CurrentRouter.Id;
+        var username = SelectedRecord.VoucherCode;
+        
+        await ExecuteBusyAsync(async (token) =>
+        {
+            var dbPath = _backgroundImportManager.GetCachedCleanDbPath(routerId);
+            if (string.IsNullOrEmpty(dbPath) || !File.Exists(dbPath))
+            {
+                await _backgroundImportManager.DownloadAndCacheDbAsync(routerId, token);
+                dbPath = _backgroundImportManager.GetCachedCleanDbPath(routerId);
+            }
+
+            if (string.IsNullOrEmpty(dbPath) || !File.Exists(dbPath))
+            {
+                await _dispatcherService.InvokeAsync(() =>
+                {
+                    _notificationService.ShowWarning("لم يتم العثور على قاعدة بيانات اليوزر منجر للراوتر الحالي. الرجاء المزامنة أولاً.");
+                });
+                return;
+            }
+
+            Dictionary<string, string>? leases = null;
+            try
+            {
+                leases = await _backgroundImportManager.GetDhcpLeasesAsync(routerId, token);
+            }
+            catch { }
+
+            await _dispatcherService.InvokeAsync(() =>
+            {
+                var routerName = _activeRouterContext.CurrentRouter?.DisplayName ?? "—";
+                var window = new Vouchers.Views.UserReportWindow(username, dbPath, routerName, leases);
+                window.Owner = System.Windows.Application.Current.MainWindow;
+                window.ShowDialog();
+            });
+        }, "جاري جلب تفاصيل الجلسات والبيانات...");
     }
 }

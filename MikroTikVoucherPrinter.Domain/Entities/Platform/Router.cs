@@ -25,4 +25,5 @@ public class Router : BaseEntity
     
     public bool IsFavorite { get; set; }
     public string? Notes { get; set; }
+    public string? UserManagerDbPath { get; set; }
 }
