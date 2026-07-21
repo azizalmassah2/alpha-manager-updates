@@ -31,6 +31,7 @@ public partial class BackupsViewModel : ViewModelBase, IDisposable
     private readonly IActiveRouterContext _activeRouterContext;
     private readonly IRouterManagementService _routerService;
     private readonly IDialogService _dialogService;
+    private readonly ISecureStorageService _secureStorageService;
 
     [ObservableProperty]
     private ObservableCollection<BackupFileItem> _files = new();
@@ -46,16 +47,89 @@ public partial class BackupsViewModel : ViewModelBase, IDisposable
         IRouterManagementService routerService, 
         IDialogService dialogService,
         IPermissionService permissionService,
-        IEventBus eventBus)
+        IEventBus eventBus,
+        ISecureStorageService secureStorageService)
         : base(permissionService, eventBus)
     {
         _activeRouterContext = activeRouterContext;
         _routerService = routerService;
         _dialogService = dialogService;
+        _secureStorageService = secureStorageService;
 
         _activeRouterContext.ActiveRouterChanged += OnActiveRouterChanged;
         
         var _ = LoadDataAsync();
+    }
+
+    private async Task<bool> DownloadFileViaFtpAsync(string remoteFileName, string localFilePath)
+    {
+        try
+        {
+            var router = _activeRouterContext.CurrentRouter;
+            if (router == null) return false;
+            
+            string password = "";
+            if (!string.IsNullOrEmpty(router.EncryptedPassword))
+            {
+                password = _secureStorageService.Decrypt(router.EncryptedPassword);
+            }
+
+            var ftpUrl = $"ftp://{router.Host}/{remoteFileName}";
+            var req = (System.Net.FtpWebRequest)System.Net.WebRequest.Create(ftpUrl);
+            req.Method = System.Net.WebRequestMethods.Ftp.DownloadFile;
+            req.Credentials = new System.Net.NetworkCredential(router.Username, password);
+            req.UsePassive = true;
+            req.UseBinary = true;
+            req.KeepAlive = false;
+            req.Timeout = 15000;
+
+            using (var resp = (System.Net.FtpWebResponse)await req.GetResponseAsync())
+            using (var ftpStream = resp.GetResponseStream())
+            using (var fileStream = new FileStream(localFilePath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, true))
+            {
+                await ftpStream.CopyToAsync(fileStream);
+            }
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DownloadFileAsync(BackupFileItem? file)
+    {
+        if (file == null) return;
+        
+        IsLoading = true;
+        try
+        {
+            string targetFolder = @"D:\AlphaManagerBackups";
+            if (!Directory.Exists(targetFolder))
+            {
+                Directory.CreateDirectory(targetFolder);
+            }
+            string localPath = Path.Combine(targetFolder, file.Name);
+
+            bool success = await DownloadFileViaFtpAsync(file.Name, localPath);
+            if (success)
+            {
+                await _dialogService.ShowAlertAsync($"تم تنزيل النسخة الاحتياطية بنجاح وحفظها على الكمبيوتر في:\n{localPath}", "نجاح التنزيل");
+            }
+            else
+            {
+                await _dialogService.ShowAlertAsync($"فشل في تنزيل النسخة الاحتياطية من الراوتر.\nيرجى التحقق من تفعيل خدمة FTP وصلاحيات مجلد الوجهة.", "خطأ");
+            }
+        }
+        catch (Exception ex)
+        {
+            await _dialogService.ShowAlertAsync($"حدث خطأ أثناء تنزيل النسخة الاحتياطية: {ex.Message}", "خطأ");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     [RelayCommand]
@@ -112,7 +186,28 @@ public partial class BackupsViewModel : ViewModelBase, IDisposable
         try
         {
             await _routerService.ExecuteCommandAsync("/system/backup/save", new Dictionary<string, string> { { "name", backupName } });
-            await _dialogService.ShowAlertAsync($"تم إنشاء النسخة الاحتياطية ({backupName}.backup) بنجاح.", "نجاح");
+            
+            // الانتظار ثانية للكتابة في الفايل سيستم للراوتر
+            await Task.Delay(1500);
+            
+            string backupFileName = $"{backupName}.backup";
+            string targetFolder = @"D:\AlphaManagerBackups";
+            if (!Directory.Exists(targetFolder))
+            {
+                Directory.CreateDirectory(targetFolder);
+            }
+            string localPath = Path.Combine(targetFolder, backupFileName);
+
+            bool success = await DownloadFileViaFtpAsync(backupFileName, localPath);
+            if (success)
+            {
+                await _dialogService.ShowAlertAsync($"تم إنشاء النسخة الاحتياطية وحفظها على الكمبيوتر (القرص D) بنجاح:\n{localPath}", "نجاح");
+            }
+            else
+            {
+                await _dialogService.ShowAlertAsync($"تم إنشاء النسخة الاحتياطية على المايكروتك بنجاح، ولكن تعذر تنزيلها للكمبيوتر. يرجى محاولة تنزيلها يدوياً.", "تنبيه");
+            }
+
             await LoadDataAsync();
         }
         catch (Exception ex)
@@ -136,7 +231,27 @@ public partial class BackupsViewModel : ViewModelBase, IDisposable
         try
         {
             await _routerService.ExecuteCommandAsync("/export", new Dictionary<string, string> { { "file", exportName } });
-            await _dialogService.ShowAlertAsync($"تم إنشاء ملف الإعدادات ({exportName}.rsc) بنجاح.", "نجاح");
+            
+            await Task.Delay(1500);
+
+            string exportFileName = $"{exportName}.rsc";
+            string targetFolder = @"D:\AlphaManagerBackups";
+            if (!Directory.Exists(targetFolder))
+            {
+                Directory.CreateDirectory(targetFolder);
+            }
+            string localPath = Path.Combine(targetFolder, exportFileName);
+
+            bool success = await DownloadFileViaFtpAsync(exportFileName, localPath);
+            if (success)
+            {
+                await _dialogService.ShowAlertAsync($"تم تصدير ملف الإعدادات وحفظه على الكمبيوتر (القرص D) بنجاح:\n{localPath}", "نجاح");
+            }
+            else
+            {
+                await _dialogService.ShowAlertAsync($"تم تصدير ملف الإعدادات على المايكروتك بنجاح، ولكن تعذر تنزيلها للكمبيوتر. يرجى محاولة تنزيلها يدوياً.", "تنبيه");
+            }
+
             await LoadDataAsync();
         }
         catch (Exception ex)
