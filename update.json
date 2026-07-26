@@ -7,8 +7,8 @@
   "mandatory": true,
   "minimumSupportedVersion": "2.0.4",
   "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.5/AlphaManagerSetup_v2.0.5.exe",
-  "sha256": "21eb53023a68a140d15e510f18fee2b057cff6f10c743369f8a1dedbb2ffbde0",
-  "fileSize": 86441818,
+  "sha256": "f234c2fa986b0179796cb1933e73d70dd18a2234683ab840abe00783c11f491a",
+  "fileSize": 86444539,
   "releaseDate": "2026-07-26",
   "releaseNotes": [
     "إصلاح شامل لمشكلة ترقية مخطط قاعدة البيانات SQLite لضمان إضافة عمود SystemType وحل خطأ no such column p.SystemType على أجهزة العملاء.",
