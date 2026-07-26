@@ -4,7 +4,7 @@
   "generatedBy": "Alpha Manager Build System",
   "version": "2.0.5",
   "updateType": "mandatory",
-  "mandatory": true,
+  "mandatory": false,
   "minimumSupportedVersion": "2.0.4",
   "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.5/AlphaManagerSetup_v2.0.5.exe",
   "sha256": "f234c2fa986b0179796cb1933e73d70dd18a2234683ab840abe00783c11f491a",
