@@ -7,6 +7,17 @@
              d:DesignHeight="500" d:DesignWidth="800"
              FlowDirection="RightToLeft">
     
+    <UserControl.Resources>
+        <Style x:Key="VisibleIfUpdating" TargetType="FrameworkElement">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding HasUpdate}" Value="True">
+                    <Setter Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -42,6 +53,53 @@
                             <TextBlock Text="{Binding Copyright}" FontSize="11.5" Foreground="{DynamicResource MutedTextBrush}"/>
                         </StackPanel>
                     </Grid>
+                </Border>
+
+                <!-- Main Status Card -->
+                <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="20" Margin="0,0,0,16">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="تحديثات النظام" FontSize="14.5" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,0,8"/>
+                            <TextBlock Text="{Binding StatusMessage}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4,0,4"/>
+                            <TextBlock Text="{Binding AppVersion, StringFormat='الإصدار المثبت حالياً: {0}'}" FontSize="11.5" Foreground="{DynamicResource MutedTextBrush}"/>
+                        </StackPanel>
+
+                        <Button Grid.Column="1" 
+                                Content="🔎 فحص التحديثات الآن" 
+                                Command="{Binding CheckForUpdatesCommand}"
+                                IsEnabled="{Binding IsChecking, Converter={StaticResource StringToBoolConverter}, ConverterParameter=false}"
+                                Style="{DynamicResource PrimaryButtonStyle}" 
+                                Padding="20,10"
+                                VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+
+                <!-- Update Details Card (Visible only when update found) -->
+                <Border Style="{StaticResource VisibleIfUpdating}" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource SuccessBrush}" BorderThickness="1" CornerRadius="12" Padding="20" Margin="0,0,0,16">
+                    <StackPanel>
+                        <TextBlock Text="✨ يتوفر إصدار جديد للتثبيت!" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}" Margin="0,0,0,10"/>
+                        <Border Height="1" Background="{DynamicResource BorderBrush}" Opacity="0.5" Margin="0,0,0,10"/>
+                        
+                        <TextBlock Text="{Binding UpdateVersion, StringFormat='الإصدار المتاح: {0}'}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,0,8"/>
+                        
+                        <TextBlock Text="سجل التغييرات (Changelog):" FontSize="11.5" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                        <Border Background="{DynamicResource SurfaceAltBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,16">
+                            <TextBlock Text="{Binding Changelog}" FontSize="12.5" Foreground="{DynamicResource PrimaryTextBrush}" TextWrapping="Wrap" FontFamily="Consolas"/>
+                        </Border>
+
+                        <Button Content="📥 تنزيل وتثبيت التحديث الآن" 
+                                Command="{Binding DownloadUpdateCommand}"
+                                Style="{DynamicResource PrimaryButtonStyle}" 
+                                Background="{DynamicResource SuccessBrush}"
+                                Foreground="White"
+                                HorizontalAlignment="Right"
+                                Padding="24,10"/>
+                    </StackPanel>
                 </Border>
 
                 <!-- Technical Details Card -->

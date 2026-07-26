@@ -1,0 +1,69 @@
+<Window x:Class="Lux.Management.Console.Modules.MikroTik.RouterManagement.Views.AddVlanDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:hc="https://handyorg.github.io/handycontrol"
+        Title="إضافة فيلان جديد"
+        Height="360" Width="420"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        FlowDirection="RightToLeft"
+        Background="{DynamicResource RegionBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}">
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,15">
+            <TextBlock Text="➕ إضافة فيلان جديد" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}"/>
+            <TextBlock Text="سيتم إنشاء واجهة الفيلان، وتعيين الآي بي، وإنشاء الـ Pool والـ DHCP والـ Hotspot تلقائياً." FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,5,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Row 0: Parent Interface -->
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="الواجهة الأساسية:" VerticalAlignment="Center" Margin="0,0,0,12" FontSize="12.5"/>
+            <ComboBox x:Name="ComboParentInterface" Grid.Row="0" Grid.Column="1"
+                      Style="{StaticResource ComboBoxExtend}"
+                      Height="32" Margin="0,0,0,12" VerticalAlignment="Center"/>
+
+            <!-- Row 1: VLAN ID -->
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="معرّف الفيلان (ID):" VerticalAlignment="Center" Margin="0,0,0,12" FontSize="12.5"/>
+            <TextBox x:Name="TxtVlanId" Grid.Row="1" Grid.Column="1"
+                     Style="{StaticResource TextBoxExtend}"
+                     Height="32" Margin="0,0,0,12" VerticalAlignment="Center"
+                     TextChanged="TxtVlanId_TextChanged"/>
+
+            <!-- Row 2: VLAN Name -->
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="اسم الفيلان:" VerticalAlignment="Center" Margin="0,0,0,12" FontSize="12.5"/>
+            <TextBox x:Name="TxtVlanName" Grid.Row="2" Grid.Column="1"
+                     Style="{StaticResource TextBoxExtend}"
+                     Height="32" Margin="0,0,0,12" VerticalAlignment="Center"/>
+
+            <!-- Row 3: VLAN IP Address -->
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="عنوان IP الفيلان:" VerticalAlignment="Center" Margin="0,0,0,12" FontSize="12.5"/>
+            <TextBox x:Name="TxtVlanIp" Grid.Row="3" Grid.Column="1"
+                     Style="{StaticResource TextBoxExtend}"
+                     Height="32" Margin="0,0,0,12" VerticalAlignment="Center"/>
+        </Grid>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,15,0,0">
+            <Button Content="إضافة" Click="BtnAdd_Click" Style="{StaticResource ButtonPrimary}" Width="80" Margin="0,0,10,0"/>
+            <Button Content="إلغاء" Click="BtnCancel_Click" Style="{StaticResource ButtonDefault}" Width="80"/>
+        </StackPanel>
+    </Grid>
+</Window>

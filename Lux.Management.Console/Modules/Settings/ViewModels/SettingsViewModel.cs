@@ -1,8 +1,12 @@
 using Lux.Management.Console.ViewModels;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Lux.Platform.Abstractions.Interfaces;
 using Lux.Management.Console.Core;
 using MikroTikVoucherPrinter.Domain.Interfaces;
+using System.IO;
+using System.Linq;
+using System;
 
 namespace Lux.Management.Console.Modules.Settings.ViewModels;
 
@@ -20,6 +24,7 @@ public partial class SettingsViewModel : ViewModelBase
         _nocMonitoringInterval = _settingsService.Get("NocMonitoringInterval", 100);
         _nocPingTimeout = _settingsService.Get("NocPingTimeout", 2000);
         _userManagerImportInterval = _settingsService.Get("UserManagerImportInterval", 5);
+        _backupPath = _settingsService.Get("BackupPath", GetDefaultBackupPath());
     }
 
     [ObservableProperty]
@@ -33,6 +38,47 @@ public partial class SettingsViewModel : ViewModelBase
 
     [ObservableProperty]
     private int _userManagerImportInterval;
+
+    [ObservableProperty]
+    private string _backupPath = string.Empty;
+
+    private string GetDefaultBackupPath()
+    {
+        try
+        {
+            var systemDrive = Path.GetPathRoot(Environment.SystemDirectory);
+            var nonSystemDrive = DriveInfo.GetDrives()
+                .FirstOrDefault(d => d.DriveType == DriveType.Fixed && !string.Equals(d.Name, systemDrive, StringComparison.OrdinalIgnoreCase));
+            
+            if (nonSystemDrive != null)
+            {
+                return Path.Combine(nonSystemDrive.Name, "AlphaManagerBackups");
+            }
+        }
+        catch { }
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "AlphaManagerBackups");
+    }
+
+    [RelayCommand]
+    private void ChangeBackupPath()
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = "اختر مجلد حفظ النسخ الاحتياطية",
+            InitialDirectory = Directory.Exists(BackupPath) ? BackupPath : ""
+        };
+        if (dialog.ShowDialog() == true)
+        {
+            BackupPath = dialog.FolderName;
+        }
+    }
+
+    partial void OnBackupPathChanged(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return;
+        _settingsService.Set("BackupPath", value);
+        _ = _settingsService.SaveAsync();
+    }
 
     partial void OnAutoConnectOnStartupChanged(bool value)
     {

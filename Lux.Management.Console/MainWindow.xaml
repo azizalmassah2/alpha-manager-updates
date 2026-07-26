@@ -293,12 +293,6 @@
                                 local:NavigationItemProperties.IconData="{StaticResource LicenseIcon}"
                                 local:NavigationItemProperties.IsActive="{Binding ShellState.CurrentViewModel, Converter={StaticResource TypeToBooleanConverter}, ConverterParameter=LicenseViewModel}"/>
 
-                        <Button Content="التحديثات" 
-                                Style="{StaticResource NavigationRailButtonStyle}" 
-                                Command="{Binding NavigateUpdatesCommand}" 
-                                local:NavigationItemProperties.IconData="{StaticResource UpdatesIcon}"
-                                local:NavigationItemProperties.IsActive="{Binding ShellState.CurrentViewModel, Converter={StaticResource TypeToBooleanConverter}, ConverterParameter=UpdatesViewModel}"/>
-
                         <Button Content="النسخ الاحتياطي" 
                                 Style="{StaticResource NavigationRailButtonStyle}" 
                                 Command="{Binding NavigateBackupCommand}" 

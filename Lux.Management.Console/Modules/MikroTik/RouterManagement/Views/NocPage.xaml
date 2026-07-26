@@ -94,8 +94,13 @@
                 <TextBlock Text="• فحص تلقائي للأجهزة المضافة عبر Ping" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
             </StackPanel>
 
-            <!-- Interval Configuration -->
+            <!-- Interval Configuration & Add Button -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="➕ إضافة فيلان جديد"
+                        Style="{StaticResource ButtonPrimary}"
+                        Command="{Binding AddVlanCommand}"
+                        Margin="0,0,16,0"
+                        Height="30" Padding="12,0"/>
                 <TextBlock Text="فترة فحص البينج (بالثواني):" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <TextBox Text="{Binding NocMonitoringInterval, UpdateSourceTrigger=PropertyChanged}"
                          Style="{StaticResource TextBoxExtend}"
@@ -172,7 +177,6 @@
             <DataGrid x:Name="VlanMonitorDataGrid" 
                       VerticalAlignment="Stretch"
                       HorizontalAlignment="Stretch"
-                      RowHeight="40"
                       ItemsSource="{Binding Vlans}" 
                       SelectedItem="{Binding SelectedVlan, Mode=TwoWay}"
                       AutoGenerateColumns="False" 
@@ -190,15 +194,21 @@
                       ScrollViewer.CanContentScroll="True"
                       VerticalGridLinesBrush="{DynamicResource BorderBrush}"
                       HorizontalGridLinesBrush="{DynamicResource BorderBrush}"
+                      RowHeight="30"
                       Style="{DynamicResource DataGrid.Style}">
                 <DataGrid.ColumnHeaderStyle>
                     <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
                         <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                        <Setter Property="Height" Value="32"/>
+                        <Setter Property="FontSize" Value="12"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/>
                     </Style>
                 </DataGrid.ColumnHeaderStyle>
 
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow">
+                        <Setter Property="FontSize" Value="11"/>
                         <EventSetter Event="MouseDoubleClick" Handler="DataGridRow_MouseDoubleClick"/>
                     </Style>
                 </DataGrid.RowStyle>
@@ -283,8 +293,56 @@
                     <!-- Col 9: Last Seen -->
                     <DataGridTextColumn Header="آخر ظهور" Binding="{Binding LastSeenText}" Width="1.5*" ElementStyle="{StaticResource CenterTextBlockStyle}"/>
 
-                    <!-- Col 10: Actions -->
-                    <DataGridTemplateColumn Header="الإجراءات" Width="2.2*">
+                    <!-- Col 10: Hotspot Status -->
+                    <DataGridTemplateColumn Header="هوت سبوت" Width="90">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Ellipse Width="7" Height="7" Margin="0,0,5,0">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Fill" Value="Gray"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HotspotRunning}" Value="True">
+                                                        <Setter Property="Fill" Value="#22c55e"/>
+                                                    </DataTrigger>
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions>
+                                                            <Condition Binding="{Binding HotspotExists}" Value="True"/>
+                                                            <Condition Binding="{Binding HotspotRunning}" Value="False"/>
+                                                        </MultiDataTrigger.Conditions>
+                                                        <Setter Property="Fill" Value="#ef4444"/>
+                                                    </MultiDataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <TextBlock Text="{Binding HotspotStatusText}" FontSize="10.5" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="Gray"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HotspotRunning}" Value="True">
+                                                        <Setter Property="Foreground" Value="#22c55e"/>
+                                                    </DataTrigger>
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions>
+                                                            <Condition Binding="{Binding HotspotExists}" Value="True"/>
+                                                            <Condition Binding="{Binding HotspotRunning}" Value="False"/>
+                                                        </MultiDataTrigger.Conditions>
+                                                        <Setter Property="Foreground" Value="#ef4444"/>
+                                                    </MultiDataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- Col 11: Actions -->
+                    <DataGridTemplateColumn Header="الإجراءات" Width="105">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -292,10 +350,10 @@
                                     <Button Command="{Binding DataContext.EditVlanNameCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}"
                                             Style="{StaticResource ButtonInfo}"
-                                            Height="28" Width="28" Padding="0" Margin="3"
+                                            Height="20" Width="20" Padding="0" Margin="2,0"
                                             ToolTip="تعديل الاسم محلياً"
                                             hc:BorderElement.CornerRadius="4">
-                                        <Viewbox Width="12" Height="12">
+                                        <Viewbox Width="9" Height="9">
                                             <Path Fill="White" Stretch="Uniform" Data="M19.3,5.1l-1.4-1.4c-0.8-0.8-2-0.8-2.8,0L3,15.9V20h4.1l12.2-12.2C20.1,7.1,20.1,5.9,19.3,5.1z M6.3,18H5v-1.3l9.2-9.2l1.3,1.3L6.3,18z"/>
                                         </Viewbox>
                                     </Button>
@@ -304,10 +362,10 @@
                                     <Button Command="{Binding DataContext.ConfigureMonitoringCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}"
                                             Style="{StaticResource ButtonPrimary}"
-                                            Height="28" Width="28" Padding="0" Margin="3"
+                                            Height="20" Width="20" Padding="0" Margin="2,0"
                                             ToolTip="إعداد المراقبة"
                                             hc:BorderElement.CornerRadius="4">
-                                        <Viewbox Width="12" Height="12">
+                                        <Viewbox Width="9" Height="9">
                                             <Path Fill="White" Stretch="Uniform" Data="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12c0,0.31,0.04,0.64,0.09,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 C19.86,16.5,19.9,16.17,19.9,15.86c0-0.31-0.04-0.64-0.09-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32 c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96C16.56,9.8,16.02,9.47,15.53,9.1L15.17,6.56z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
                                         </Viewbox>
                                     </Button>
@@ -315,7 +373,7 @@
                                     <!-- Enable Button (Visible when IsDisabled is True) -->
                                     <Button Command="{Binding DataContext.ToggleVlanStatusCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}"
-                                            Height="28" Width="28" Padding="0" Margin="3"
+                                            Height="20" Width="20" Padding="0" Margin="2,0"
                                             ToolTip="تفعيل الفيلان"
                                             hc:BorderElement.CornerRadius="4">
                                         <Button.Style>
@@ -328,7 +386,7 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Button.Style>
-                                        <Viewbox Width="10" Height="10">
+                                        <Viewbox Width="8" Height="8">
                                             <Path Fill="White" Stretch="Uniform" Data="M6,4l12,8L6,20V4z"/>
                                         </Viewbox>
                                     </Button>
@@ -336,7 +394,7 @@
                                     <!-- Disable Button (Visible when IsDisabled is False) -->
                                     <Button Command="{Binding DataContext.ToggleVlanStatusCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}"
-                                            Height="28" Width="28" Padding="0" Margin="3"
+                                            Height="20" Width="20" Padding="0" Margin="2,0"
                                             ToolTip="تعطيل الفيلان"
                                             hc:BorderElement.CornerRadius="4">
                                         <Button.Style>
@@ -349,7 +407,7 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Button.Style>
-                                        <Viewbox Width="10" Height="10">
+                                        <Viewbox Width="8" Height="8">
                                             <Path Fill="White" Stretch="Uniform" Data="M6,19h4V5H6V19z M14,5v14h4V5H14z"/>
                                         </Viewbox>
                                     </Button>

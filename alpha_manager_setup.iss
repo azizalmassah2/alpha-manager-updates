@@ -1,13 +1,13 @@
 [Setup]
 AppName=Alpha Manager
-AppVerName=Alpha Manager v2.0.4
-AppVersion=2.0.4
-VersionInfoVersion=2.0.4
+AppVerName=Alpha Manager v2.0.5
+AppVersion=2.0.5
+VersionInfoVersion=2.0.5
 AppPublisher=Alpha Manager
 DefaultDirName={autopf}\AlphaManager
 DefaultGroupName=Alpha Manager
 OutputDir=D:\LUXCARD\desktop\Installer
-OutputBaseFilename=AlphaManagerSetup_v2.0.4
+OutputBaseFilename=AlphaManagerSetup_v2.0.5
 Compression=lzma2
 SolidCompression=yes
 SetupIconFile=D:\LUXCARD\desktop\Lux.Management.Console\Resources\img\icon.ico

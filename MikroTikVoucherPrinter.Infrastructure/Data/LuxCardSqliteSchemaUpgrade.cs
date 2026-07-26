@@ -11,7 +11,7 @@ namespace MikroTikVoucherPrinter.Infrastructure.Data;
 /// </summary>
 public static class LuxCardSqliteSchemaUpgrade
 {
-    private const int CurrentSchemaVersion = 13;
+    private const int CurrentSchemaVersion = 14;
 
     public static async Task ApplyAsync(LuxCardDbContext db, ILogger logger, CancellationToken cancellationToken = default)
     {
@@ -76,6 +76,13 @@ public static class LuxCardSqliteSchemaUpgrade
                 await EnsureProfileColumnsAsync(conn, logger, cancellationToken);
                 await EnsureBatchColumnsAsync(conn, logger, cancellationToken);
                 await EnsureAgentColumnsAsync(conn, logger, cancellationToken);
+            }
+
+            // v14 — Add SystemType column to Profiles (was missing from EnsureProfileColumnsAsync,
+            //        causing "no such column: p.SystemType" on customer machines with existing databases)
+            if (applied < 14)
+            {
+                await EnsureProfileColumnsAsync(conn, logger, cancellationToken);
             }
 
             await InsertVersionRowAsync(conn, CurrentSchemaVersion, cancellationToken);
@@ -247,9 +254,12 @@ public static class LuxCardSqliteSchemaUpgrade
             return;
 
         var cols = await GetColumnNamesForAnyTableAsync(conn, "Profiles", ct);
-        await TryAddColumnAsync(conn, cols, "Profiles", "TemplateId", "TEXT NULL", logger, ct);
-        await TryAddColumnAsync(conn, cols, "Profiles", "MikroTikProfileId", "TEXT NULL", logger, ct);
-        await TryAddColumnAsync(conn, cols, "Profiles", "RouterId", "TEXT NOT NULL DEFAULT ''", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Profiles", "TemplateId",       "TEXT NULL",                    logger, ct);
+        await TryAddColumnAsync(conn, cols, "Profiles", "MikroTikProfileId","TEXT NULL",                    logger, ct);
+        await TryAddColumnAsync(conn, cols, "Profiles", "RouterId",         "TEXT NOT NULL DEFAULT ''",     logger, ct);
+        // SystemType was added to the domain model but was never added here — this caused
+        // "no such column: p.SystemType" on customer machines that had pre-existing databases.
+        await TryAddColumnAsync(conn, cols, "Profiles", "SystemType",       "TEXT NULL",                    logger, ct);
     }
 
     private static async Task EnsureTemplateConfigColumnsAsync(DbConnection conn, ILogger logger, CancellationToken ct)

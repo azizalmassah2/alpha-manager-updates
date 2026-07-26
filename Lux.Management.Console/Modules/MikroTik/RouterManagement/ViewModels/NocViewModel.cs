@@ -177,6 +177,22 @@ public partial class VlanMonitorItem : ObservableObject
 
     public string LatencyText => DeviceStatus == "Offline" || LatencyMs == 0 ? "--" : $"{LatencyMs:F1} ms";
     public string LastSeenText => LastSeen.HasValue ? LastSeen.Value.ToString("yyyy-MM-dd HH:mm:ss") : "--";
+
+    // Hotspot server info
+    public string HotspotServerName { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HotspotStatusText))]
+    [NotifyPropertyChangedFor(nameof(HotspotStatusColor))]
+    private bool _hotspotRunning;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HotspotStatusText))]
+    [NotifyPropertyChangedFor(nameof(HotspotStatusColor))]
+    private bool _hotspotExists;
+
+    public string HotspotStatusText => !HotspotExists ? "لا يوجد" : HotspotRunning ? "يعمل" : "متوقف";
+    public string HotspotStatusColor => !HotspotExists ? "Gray" : HotspotRunning ? "#22c55e" : "#ef4444";
 }
 
 public partial class AlertItem : ObservableObject
@@ -455,6 +471,37 @@ public partial class NocViewModel : ObservableObject, IDisposable, IActivatable,
                 }
             });
 
+            // 3. استعلام حالة سرفرات الهوت سبوت ومطابقتها بالفيلانات
+            try
+            {
+                var hsResponse = await _routerService.ExecuteQueryAsync("/ip/hotspot/print", _cts.Token);
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    foreach (var hsRow in hsResponse.RawData)
+                    {
+                        var hsName = hsRow.GetValueOrDefault("name", "");
+                        var hsIface = hsRow.GetValueOrDefault("interface", "");
+                        var hsDisabled = hsRow.GetValueOrDefault("disabled", "false");
+                        bool running = !string.Equals(hsDisabled, "true", StringComparison.OrdinalIgnoreCase);
+
+                        // ابحث عن الفيلان المطابق حسب اسم الواجهة
+                        var matchedVlan = Vlans.FirstOrDefault(v =>
+                            v.Name.Equals(hsIface, StringComparison.OrdinalIgnoreCase));
+
+                        if (matchedVlan != null)
+                        {
+                            matchedVlan.HotspotServerName = hsName;
+                            matchedVlan.HotspotExists = true;
+                            matchedVlan.HotspotRunning = running;
+                        }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("⚠️ [NOC] Failed to query hotspot servers: {Message}", ex.Message);
+            }
+
             // Start Polling Engine
             StartPolling();
             _logger.LogInformation("✅ [NOC] Polling loops started successfully.");
@@ -648,7 +695,13 @@ public partial class NocViewModel : ObservableObject, IDisposable, IActivatable,
 
                         long totalUsage = vlan.LastRxBytes + vlan.LastTxBytes;
                         long maxUsage = maxVlan != null ? (maxVlan.LastRxBytes + maxVlan.LastTxBytes) : -1;
-                        if (maxVlan == null || totalUsage > maxUsage)
+
+                        // استثناء البريدجات من اختيار أعلى استهلاك لأنها تجمع حركة كل الفيلانات
+                        // أسفلها فتكون دائماً الأعلى استهلاكاً وهذا مضلل.
+                        bool isBridge = vlan.VlanId.StartsWith("bridge_", StringComparison.OrdinalIgnoreCase)
+                                     || vlan.Name.StartsWith("bridge", StringComparison.OrdinalIgnoreCase);
+
+                        if (!isBridge && (maxVlan == null || totalUsage > maxUsage))
                         {
                             maxVlan = vlan;
                         }
@@ -1011,6 +1064,199 @@ public partial class NocViewModel : ObservableObject, IDisposable, IActivatable,
                 _logger.LogError(ex, "Failed to save monitor config to database");
                 MessageBox.Show($"فشل حفظ إعدادات المراقبة: {ex.Message}", "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+    }
+
+    [RelayCommand]
+    private async Task AddVlanAsync()
+    {
+        if (!_activeRouterContext.IsConnected)
+        {
+            MessageBox.Show("يرجى الاتصال بالراوتر أولاً.", "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        try
+        {
+            // 1. الاستعلام عن الفيلانات من الجدول في الصفحة لمعرفة المعرفات المستخدمة
+            var existingIds = Vlans
+                .Select(v => int.TryParse(v.VlanId, out int id) ? id : -1)
+                .Where(id => id > 0)
+                .ToHashSet();
+
+            // فحص أقل ID متوفر وغير فعال يبدأ من الرقم 2
+            int defaultVlanId = 2;
+            while (existingIds.Contains(defaultVlanId))
+            {
+                defaultVlanId++;
+            }
+
+            // 2. جلب البريدجات من الراوتر مباشرة — الاسم لا يقتصر على كلمة bridge
+            var bridgesRes = await _routerService.ExecuteQueryAsync("/interface/bridge/print");
+            var parentInterfaces = bridgesRes.RawData
+                .Select(d => d.GetValueOrDefault("name", ""))
+                .Where(name => !string.IsNullOrEmpty(name))
+                .ToList();
+
+            // إذا لم يوجد أي بريدج، نرجع لكل الواجهات كبديل
+            if (parentInterfaces.Count == 0)
+            {
+                var interfacesRes = await _routerService.ExecuteQueryAsync("/interface/print");
+                parentInterfaces = interfacesRes.RawData
+                    .Select(d => d.GetValueOrDefault("name", ""))
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .ToList();
+            }
+
+            // 3. عرض نافذة الحوار
+            var dialog = new AddVlanDialog(parentInterfaces, defaultVlanId)
+            {
+                Owner = Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                string parentInterface = dialog.ParentInterface;
+                int vlanId = dialog.VlanId;
+                string vlanName = dialog.VlanName;
+                string vlanIp = dialog.VlanIp;
+
+                IsLoading = true;
+
+                // 4. تنفيذ أوامر التجهيز على المايكروتك بالتوالي
+                
+                // أ. إضافة واجهة VLAN
+                await _routerService.ExecuteCommandAsync("/interface/vlan/add", new Dictionary<string, string>
+                {
+                    { "name", vlanName },
+                    { "vlan-id", vlanId.ToString() },
+                    { "interface", parentInterface },
+                    { "disabled", "no" }
+                });
+
+                // ب. إضافة عنوان IP للفيلان
+                await _routerService.ExecuteCommandAsync("/ip/address/add", new Dictionary<string, string>
+                {
+                    { "address", vlanIp },
+                    { "interface", vlanName }
+                });
+
+                // ج. إضافة Pool للآي بي
+                string poolName = $"pool-{vlanName}";
+                string poolRange = $"172.16.{vlanId}.2-172.16.{vlanId}.254";
+                await _routerService.ExecuteCommandAsync("/ip/pool/add", new Dictionary<string, string>
+                {
+                    { "name", poolName },
+                    { "ranges", poolRange }
+                });
+
+                // د. إضافة DHCP Server
+                string dhcpName = $"dhcp-{vlanName}";
+                await _routerService.ExecuteCommandAsync("/ip/dhcp-server/add", new Dictionary<string, string>
+                {
+                    { "name", dhcpName },
+                    { "interface", vlanName },
+                    { "address-pool", poolName },
+                    { "disabled", "no" }
+                });
+
+                // هـ. إضافة شبكة DHCP Network
+                await _routerService.ExecuteCommandAsync("/ip/dhcp-server/network/add", new Dictionary<string, string>
+                {
+                    { "address", $"172.16.{vlanId}.0/24" },
+                    { "gateway", $"172.16.{vlanId}.1" },
+                    { "dns-server", $"172.16.{vlanId}.1" }
+                });
+
+                // و. إضافة الهوت سبوت (Hotspot)
+                // فحص وجود الملف التعريفي hsprof1
+                var profilesResponse = await _routerService.ExecuteQueryAsync("/ip/hotspot/profile/print");
+                bool hasHsProf1 = profilesResponse.RawData.Any(d => string.Equals(d.GetValueOrDefault("name", ""), "hsprof1", StringComparison.OrdinalIgnoreCase));
+                string profileName = hasHsProf1 ? "hsprof1" : "default";
+
+                string hotspotName = $"hs-{vlanName}";
+                await _routerService.ExecuteCommandAsync("/ip/hotspot/add", new Dictionary<string, string>
+                {
+                    { "name", hotspotName },
+                    { "interface", vlanName },
+                    { "profile", profileName }
+                });
+
+                // تشغيل الهوت سبوت سرفر فوراً بعد إنشائه
+                try
+                {
+                    await _routerService.ExecuteCommandAsync("/ip/hotspot/enable", new Dictionary<string, string>
+                    {
+                        { "numbers", hotspotName }
+                    });
+                }
+                catch (Exception enableEx)
+                {
+                    _logger.LogWarning("⚠️ Could not enable hotspot {Name}: {Msg}", hotspotName, enableEx.Message);
+                }
+
+                // ز. تحديث قائمة الـ Bridge VLAN لمطابقة البريدج فيلتر
+                await UpdateBridgeVlanListAsync(parentInterface, vlanId);
+
+                // تحديث قائمة الفيلانات في الواجهة
+                await LoadInitialDataAndStartAsync();
+
+                MessageBox.Show("تم إنشاء الفيلان وتجهيز إعدادات الآي بي والـ DHCP والـ Hotspot والبريدج فيلتر بنجاح!", "نجاح", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"فشل إضافة الفيلان: {ex.Message}", "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task UpdateBridgeVlanListAsync(string parentInterface, int newVlanId)
+    {
+        try
+        {
+            var response = await _routerService.ExecuteQueryAsync("/interface/bridge/vlan/print");
+            var entry = response.RawData.FirstOrDefault(d => d.GetValueOrDefault("bridge", "") == parentInterface);
+            if (entry != null)
+            {
+                string currentVlanIds = entry.GetValueOrDefault("vlan-ids", "");
+                var idList = currentVlanIds.Split(',')
+                    .Select(s => s.Trim())
+                    .Where(s => int.TryParse(s, out _))
+                    .Select(int.Parse)
+                    .ToList();
+
+                if (!idList.Contains(newVlanId))
+                {
+                    idList.Add(newVlanId);
+                    idList.Sort();
+                    string newVlanIdsStr = string.Join(",", idList);
+                    string entryId = entry.GetValueOrDefault(".id", "");
+                    
+                    await _routerService.ExecuteCommandAsync("/interface/bridge/vlan/set", new Dictionary<string, string>
+                    {
+                        { ".id", entryId },
+                        { "vlan-ids", newVlanIdsStr }
+                    });
+                }
+            }
+            else
+            {
+                // إذا لم يكن هناك إدخال لهذا البريدج، نقوم بإنشائه وتعيين الفيلان البريدج المفرتر
+                await _routerService.ExecuteCommandAsync("/interface/bridge/vlan/add", new Dictionary<string, string>
+                {
+                    { "bridge", parentInterface },
+                    { "vlan-ids", newVlanId.ToString() },
+                    { "tagged", parentInterface }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update bridge vlan list for parent {Parent} and VLAN {VlanId}", parentInterface, newVlanId);
         }
     }
 

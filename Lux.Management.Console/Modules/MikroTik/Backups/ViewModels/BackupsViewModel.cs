@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MikroTikVoucherPrinter.Domain.Interfaces;
 using MikroTikVoucherPrinter.Domain.Interfaces.Platform;
 using Lux.Management.Console.Modules.MikroTik.RouterManagement.Services;
 using Lux.Management.Console.Core;
@@ -24,14 +25,16 @@ public class BackupFileItem
     public string Type { get; set; } = string.Empty;
     public string Size { get; set; } = string.Empty;
     public string CreationTime { get; set; } = string.Empty;
+    public string FilePath { get; set; } = string.Empty;
 }
 
 public partial class BackupsViewModel : ViewModelBase, IDisposable
 {
     private readonly IActiveRouterContext _activeRouterContext;
     private readonly IRouterManagementService _routerService;
-    private readonly IDialogService _dialogService;
+    private readonly Lux.Management.Console.Core.IDialogService _dialogService;
     private readonly ISecureStorageService _secureStorageService;
+    private readonly ISettingsService _settingsService;
 
     [ObservableProperty]
     private ObservableCollection<BackupFileItem> _files = new();
@@ -45,20 +48,49 @@ public partial class BackupsViewModel : ViewModelBase, IDisposable
     public BackupsViewModel(
         IActiveRouterContext activeRouterContext, 
         IRouterManagementService routerService, 
-        IDialogService dialogService,
+        Lux.Management.Console.Core.IDialogService dialogService,
         IPermissionService permissionService,
         IEventBus eventBus,
-        ISecureStorageService secureStorageService)
+        ISecureStorageService secureStorageService,
+        ISettingsService settingsService)
         : base(permissionService, eventBus)
     {
         _activeRouterContext = activeRouterContext;
         _routerService = routerService;
         _dialogService = dialogService;
         _secureStorageService = secureStorageService;
+        _settingsService = settingsService;
 
         _activeRouterContext.ActiveRouterChanged += OnActiveRouterChanged;
         
         var _ = LoadDataAsync();
+    }
+
+    private string GetBackupPath()
+    {
+        var path = _settingsService.Get<string>("BackupPath");
+        if (string.IsNullOrEmpty(path))
+        {
+            return GetDefaultBackupPath();
+        }
+        return path;
+    }
+
+    private string GetDefaultBackupPath()
+    {
+        try
+        {
+            var systemDrive = Path.GetPathRoot(Environment.SystemDirectory);
+            var nonSystemDrive = DriveInfo.GetDrives()
+                .FirstOrDefault(d => d.DriveType == DriveType.Fixed && !string.Equals(d.Name, systemDrive, StringComparison.OrdinalIgnoreCase));
+            
+            if (nonSystemDrive != null)
+            {
+                return Path.Combine(nonSystemDrive.Name, "AlphaManagerBackups");
+            }
+        }
+        catch { }
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "AlphaManagerBackups");
     }
 
     private async Task<bool> DownloadFileViaFtpAsync(string remoteFileName, string localFilePath)
@@ -97,166 +129,363 @@ public partial class BackupsViewModel : ViewModelBase, IDisposable
         }
     }
 
-    [RelayCommand]
-    private async Task DownloadFileAsync(BackupFileItem? file)
+    private async Task<bool> DownloadFileWithRetryAsync(string remoteFileName, string localFilePath, int maxRetries = 5, int delayMs = 2000)
     {
-        if (file == null) return;
-        
-        IsLoading = true;
+        for (int i = 0; i < maxRetries; i++)
+        {
+            bool success = await DownloadFileViaFtpAsync(remoteFileName, localFilePath);
+            if (success) return true;
+            await Task.Delay(delayMs);
+        }
+        return false;
+    }
+
+    private async Task<string?> FindRemoteFilePathAsync(string pattern)
+    {
         try
         {
-            string targetFolder = @"D:\AlphaManagerBackups";
-            if (!Directory.Exists(targetFolder))
-            {
-                Directory.CreateDirectory(targetFolder);
-            }
-            string localPath = Path.Combine(targetFolder, file.Name);
+            var response = await _routerService.ExecuteQueryAsync("/file/print");
+            var match = response.RawData.FirstOrDefault(d => d.GetValueOrDefault("name", "").Contains(pattern));
+            return match?.GetValueOrDefault("name", null);
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
-            bool success = await DownloadFileViaFtpAsync(file.Name, localPath);
-            if (success)
-            {
-                await _dialogService.ShowAlertAsync($"تم تنزيل النسخة الاحتياطية بنجاح وحفظها على الكمبيوتر في:\n{localPath}", "نجاح التنزيل");
-            }
-            else
-            {
-                await _dialogService.ShowAlertAsync($"فشل في تنزيل النسخة الاحتياطية من الراوتر.\nيرجى التحقق من تفعيل خدمة FTP وصلاحيات مجلد الوجهة.", "خطأ");
-            }
-        }
-        catch (Exception ex)
+    private async Task<string?> FindRemoteFilePathWithRetryAsync(string pattern, int maxRetries = 25, int delayMs = 1500)
+    {
+        for (int i = 0; i < maxRetries; i++)
         {
-            await _dialogService.ShowAlertAsync($"حدث خطأ أثناء تنزيل النسخة الاحتياطية: {ex.Message}", "خطأ");
+            var path = await FindRemoteFilePathAsync(pattern);
+            if (path != null) return path;
+            await Task.Delay(delayMs);
         }
-        finally
+        return null;
+    }
+
+    private async Task<bool> UploadFileViaFtpAsync(string localFilePath, string remoteFileName)
+    {
+        try
         {
-            IsLoading = false;
+            var router = _activeRouterContext.CurrentRouter;
+            if (router == null) return false;
+
+            string password = "";
+            if (!string.IsNullOrEmpty(router.EncryptedPassword))
+            {
+                password = _secureStorageService.Decrypt(router.EncryptedPassword);
+            }
+
+            var ftpUrl = $"ftp://{router.Host}/{remoteFileName}";
+            var req = (System.Net.FtpWebRequest)System.Net.WebRequest.Create(ftpUrl);
+            req.Method = System.Net.WebRequestMethods.Ftp.UploadFile;
+            req.Credentials = new System.Net.NetworkCredential(router.Username, password);
+            req.UsePassive = true;
+            req.UseBinary = true;
+            req.KeepAlive = false;
+            req.Timeout = 20000;
+
+            using (var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true))
+            using (var ftpStream = await req.GetRequestStreamAsync())
+            {
+                await fileStream.CopyToAsync(ftpStream);
+            }
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 
     [RelayCommand]
     private async Task LoadDataAsync()
     {
-        if (!_activeRouterContext.IsConnected)
-        {
-            Files.Clear();
-            return;
-        }
-
         IsLoading = true;
         ErrorMessage = string.Empty;
 
         try
         {
-            var response = await _routerService.ExecuteQueryAsync("/file/print");
-            
-            var items = response.RawData
-                .Where(d => d.GetValueOrDefault("type", "").Contains("backup") || d.GetValueOrDefault("name", "").EndsWith(".rsc"))
-                .Select(d => new BackupFileItem
-                {
-                    Id = d.GetValueOrDefault(".id", ""),
-                    Name = d.GetValueOrDefault("name", ""),
-                    Type = d.GetValueOrDefault("type", ""),
-                    Size = FormatBytes(d.GetValueOrDefault("size", "0")),
-                    CreationTime = d.GetValueOrDefault("creation-time", "")
+            string targetFolder = GetBackupPath();
+            if (!Directory.Exists(targetFolder))
+            {
+                Directory.CreateDirectory(targetFolder);
+            }
+
+            var localFiles = Directory.GetFiles(targetFolder)
+                .Select(path => new FileInfo(path))
+                .Where(f => f.Extension.Equals(".backup", StringComparison.OrdinalIgnoreCase) ||
+                            f.Extension.Equals(".rsc", StringComparison.OrdinalIgnoreCase) ||
+                            f.Extension.Equals(".umb", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(f => f.CreationTime)
+                .Select(f => {
+                    string type = "MikroTik";
+                    if (f.Name.StartsWith("usermanager_", StringComparison.OrdinalIgnoreCase) || 
+                        f.Extension.Equals(".umb", StringComparison.OrdinalIgnoreCase))
+                    {
+                        type = "User Manager";
+                    }
+
+                    return new BackupFileItem
+                    {
+                        Id = f.Name,
+                        Name = f.Name,
+                        Type = type,
+                        Size = FormatBytes(f.Length.ToString()),
+                        CreationTime = f.CreationTime.ToString("yyyy/MM/dd HH:mm:ss"),
+                        FilePath = f.FullName
+                    };
                 }).ToList();
 
             Application.Current.Dispatcher.Invoke(() =>
             {
                 Files.Clear();
-                foreach (var item in items) Files.Add(item);
+                foreach (var item in localFiles) Files.Add(item);
             });
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Failed to load backup files: {ex.Message}";
+            ErrorMessage = $"فشل في قراءة الملفات المحلية: {ex.Message}";
         }
         finally
         {
             IsLoading = false;
         }
+    }
+
+    private async Task<List<string>> GetRouterFilesAsync()
+    {
+        try
+        {
+            var response = await _routerService.ExecuteQueryAsync("/file/print");
+            return response.RawData
+                .Select(d => d.GetValueOrDefault("name", ""))
+                .Where(name => name.EndsWith(".backup", StringComparison.OrdinalIgnoreCase) || 
+                               name.EndsWith(".umb", StringComparison.OrdinalIgnoreCase) || 
+                               name.EndsWith(".rsc", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+        catch
+        {
+            return new List<string>();
+        }
+    }
+
+    private async Task<string?> FindNewFileWithRetryAsync(List<string> beforeFiles, int maxRetries = 4, int delayMs = 1000)
+    {
+        for (int i = 0; i < maxRetries; i++)
+        {
+            var afterFiles = await GetRouterFilesAsync();
+            var newFile = afterFiles.Except(beforeFiles).FirstOrDefault();
+            if (newFile != null) return newFile;
+            await Task.Delay(delayMs);
+        }
+        return null;
     }
 
     [RelayCommand]
     private async Task CreateBackupAsync()
     {
-        if (!_activeRouterContext.IsConnected) return;
-        
-        string backupName = $"backup_{DateTime.Now:yyyyMMdd_HHmmss}";
-        IsLoading = true;
+        if (!_activeRouterContext.IsConnected)
+        {
+            await _dialogService.ShowAlertAsync("يرجى الاتصال بالراوتر أولاً لإنشاء نسخة احتياطية.", "خطأ");
+            return;
+        }
 
+        IsLoading = true;
+        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        string routerBackupName = $"system_{timestamp}";
+        string routerUmName = $"usermanager_{timestamp}";
+
+        bool isV7 = _activeRouterContext.CurrentRouter?.RouterOSVersion?.StartsWith("7") == true;
+        string umExtension = isV7 ? ".rsc" : ".umb";
+
+        string targetFolder = GetBackupPath();
+        if (!Directory.Exists(targetFolder))
+        {
+            Directory.CreateDirectory(targetFolder);
+        }
+
+        int successCount = 0;
+        List<string> logs = new();
+
+        // 1. Create and download MikroTik system backup
         try
         {
-            await _routerService.ExecuteCommandAsync("/system/backup/save", new Dictionary<string, string> { { "name", backupName } });
-            
-            // الانتظار ثانية للكتابة في الفايل سيستم للراوتر
-            await Task.Delay(1500);
-            
-            string backupFileName = $"{backupName}.backup";
-            string targetFolder = @"D:\AlphaManagerBackups";
-            if (!Directory.Exists(targetFolder))
-            {
-                Directory.CreateDirectory(targetFolder);
-            }
-            string localPath = Path.Combine(targetFolder, backupFileName);
+            var beforeSystemFiles = await GetRouterFilesAsync();
 
-            bool success = await DownloadFileViaFtpAsync(backupFileName, localPath);
-            if (success)
+            await _routerService.ExecuteCommandAsync("/system/backup/save", new Dictionary<string, string> 
+            { 
+                { "name", routerBackupName },
+                { "dont-encrypt", "yes" }
+            });
+            
+            // البحث التلقائي ومقارنة الملفات للعثور على النسخة الاحتياطية الجديدة (مهلة 4 ثوانٍ كحد أقصى)
+            string? remoteBackupFile = await FindNewFileWithRetryAsync(beforeSystemFiles, 4, 1000);
+            if (!string.IsNullOrEmpty(remoteBackupFile))
             {
-                await _dialogService.ShowAlertAsync($"تم إنشاء النسخة الاحتياطية وحفظها على الكمبيوتر (القرص D) بنجاح:\n{localPath}", "نجاح");
+                string localFileName = Path.GetFileName(remoteBackupFile);
+                string localBackupPath = Path.Combine(targetFolder, localFileName);
+
+                bool downloaded = await DownloadFileWithRetryAsync(remoteBackupFile, localBackupPath, 4, 1000);
+                if (downloaded)
+                {
+                    successCount++;
+                    logs.Add("✓ تم إنشاء وتنزيل نسخة النظام (MikroTik Settings).");
+                    try { await _routerService.ExecuteCommandAsync("/file/remove", new Dictionary<string, string> { { "numbers", remoteBackupFile } }); } catch { }
+                }
+                else
+                {
+                    logs.Add("❌ فشل تنزيل نسخة النظام من الراوتر via FTP.");
+                }
             }
             else
             {
-                await _dialogService.ShowAlertAsync($"تم إنشاء النسخة الاحتياطية على المايكروتك بنجاح، ولكن تعذر تنزيلها للكمبيوتر. يرجى محاولة تنزيلها يدوياً.", "تنبيه");
+                logs.Add("❌ لم يتم العثور على ملف نسخة النظام على الراوتر (انتهاء المهلة).");
             }
-
-            await LoadDataAsync();
         }
         catch (Exception ex)
         {
-            await _dialogService.ShowAlertAsync($"فشل في إنشاء النسخة الاحتياطية: {ex.Message}", "خطأ");
+            logs.Add($"❌ فشل إنشاء نسخة النظام: {ex.Message}");
         }
-        finally
+
+        // 2. Create and download User Manager database backup
+        try
         {
-            IsLoading = false;
+            var beforeUmFiles = await GetRouterFilesAsync();
+
+            if (isV7)
+            {
+                await _routerService.ExecuteCommandAsync("/user-manager/export", new Dictionary<string, string> { { "file", routerUmName } });
+            }
+            else
+            {
+                await _routerService.ExecuteCommandAsync("/tool/user-manager/database/save", new Dictionary<string, string> { { "name", routerUmName } });
+            }
+
+            // البحث التلقائي ومقارنة الملفات للعثور على نسخة User Manager الجديدة (مهلة 4 ثوانٍ كحد أقصى)
+            string? remoteUmFile = await FindNewFileWithRetryAsync(beforeUmFiles, 4, 1000);
+            if (!string.IsNullOrEmpty(remoteUmFile))
+            {
+                string localFileName = Path.GetFileName(remoteUmFile);
+                string localUmPath = Path.Combine(targetFolder, localFileName);
+
+                bool downloaded = await DownloadFileWithRetryAsync(remoteUmFile, localUmPath, 4, 1000);
+                if (downloaded)
+                {
+                    successCount++;
+                    logs.Add("✓ تم إنشاء وتنزيل نسخة User Manager.");
+                    try { await _routerService.ExecuteCommandAsync("/file/remove", new Dictionary<string, string> { { "numbers", remoteUmFile } }); } catch { }
+                }
+                else
+                {
+                    logs.Add("❌ فشل تنزيل نسخة User Manager من الراوتر via FTP.");
+                }
+            }
+            else
+            {
+                logs.Add("❌ لم يتم العثور على ملف نسخة User Manager على الراوتر (انتهاء المهلة).");
+            }
         }
+        catch (Exception ex)
+        {
+            logs.Add($"❌ فشل إنشاء نسخة User Manager: {ex.Message}");
+        }
+
+        await LoadDataAsync();
+
+        string summary = string.Join("\n", logs);
+        if (successCount == 2)
+        {
+            await _dialogService.ShowAlertAsync($"تم إنجاز النسخ الاحتياطي بالكامل وحفظه بالكمبيوتر:\n\n{summary}", "نجاح");
+        }
+        else if (successCount > 0)
+        {
+            await _dialogService.ShowAlertAsync($"اكتمل النسخ الاحتياطي جزئياً:\n\n{summary}", "تنبيه");
+        }
+        else
+        {
+            await _dialogService.ShowAlertAsync($"فشل إنشاء النسخ الاحتياطية:\n\n{summary}", "خطأ");
+        }
+
+        IsLoading = false;
     }
 
     [RelayCommand]
-    private async Task CreateExportAsync()
+    private async Task RestoreFileAsync(BackupFileItem? file)
     {
-        if (!_activeRouterContext.IsConnected) return;
+        if (file == null || string.IsNullOrEmpty(file.FilePath) || !File.Exists(file.FilePath))
+        {
+            await _dialogService.ShowAlertAsync("الملف المحلي غير موجود أو لم يتم تحديده.", "خطأ");
+            return;
+        }
 
-        string exportName = $"export_{DateTime.Now:yyyyMMdd_HHmmss}";
+        if (!_activeRouterContext.IsConnected)
+        {
+            await _dialogService.ShowAlertAsync("يرجى الاتصال بالراوتر أولاً لاستعادة النسخة الاحتياطية.", "خطأ");
+            return;
+        }
+
+        bool confirm = await _dialogService.ShowConfirmationAsync(
+            $"⚠️ تنبيه: هل أنت متأكد من استعادة النسخة الاحتياطية '{file.Name}' على الراوتر؟\n\n" +
+            "ستقوم هذه العملية باستبدال البيانات الحالية على الراوتر. وفي حال نسخ النظام الكلية، سيتم إعادة تشغيل الراوتر تلقائياً.");
+
+        if (!confirm) return;
+
         IsLoading = true;
-
         try
         {
-            await _routerService.ExecuteCommandAsync("/export", new Dictionary<string, string> { { "file", exportName } });
-            
-            await Task.Delay(1500);
-
-            string exportFileName = $"{exportName}.rsc";
-            string targetFolder = @"D:\AlphaManagerBackups";
-            if (!Directory.Exists(targetFolder))
+            // 1. Upload local file to router via FTP
+            bool uploaded = await UploadFileViaFtpAsync(file.FilePath, file.Name);
+            if (!uploaded)
             {
-                Directory.CreateDirectory(targetFolder);
-            }
-            string localPath = Path.Combine(targetFolder, exportFileName);
-
-            bool success = await DownloadFileViaFtpAsync(exportFileName, localPath);
-            if (success)
-            {
-                await _dialogService.ShowAlertAsync($"تم تصدير ملف الإعدادات وحفظه على الكمبيوتر (القرص D) بنجاح:\n{localPath}", "نجاح");
-            }
-            else
-            {
-                await _dialogService.ShowAlertAsync($"تم تصدير ملف الإعدادات على المايكروتك بنجاح، ولكن تعذر تنزيلها للكمبيوتر. يرجى محاولة تنزيلها يدوياً.", "تنبيه");
+                await _dialogService.ShowAlertAsync("فشل في رفع ملف النسخة الاحتياطية إلى الراوتر عبر FTP.", "خطأ");
+                return;
             }
 
-            await LoadDataAsync();
+            // 2. Execute restore command
+            if (file.Type == "User Manager")
+            {
+                if (file.Name.EndsWith(".umb", StringComparison.OrdinalIgnoreCase))
+                {
+                    await _routerService.ExecuteCommandAsync("/tool/user-manager/database/load", new Dictionary<string, string> { { "name", file.Name } });
+                }
+                else if (file.Name.EndsWith(".rsc", StringComparison.OrdinalIgnoreCase))
+                {
+                    await _routerService.ExecuteCommandAsync("/import", new Dictionary<string, string> { { "file-name", file.Name } });
+                }
+                
+                // Cleanup file on router
+                try { await _routerService.ExecuteCommandAsync("/file/remove", new Dictionary<string, string> { { "numbers", file.Name } }); } catch { }
+                await _dialogService.ShowAlertAsync("تم استعادة قاعدة بيانات User Manager بنجاح.", "نجاح");
+            }
+            else // MikroTik settings
+            {
+                if (file.Name.EndsWith(".backup", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        await _routerService.ExecuteCommandAsync("/system/backup/load", new Dictionary<string, string> { { "name", file.Name } });
+                    }
+                    catch
+                    {
+                        // المتوقع حدوث قطع اتصال بسبب إعادة التشغيل التلقائي للراوتر
+                    }
+                    await _dialogService.ShowAlertAsync("تم إرسال ملف الاستعادة وجاري إعادة تشغيل الراوتر الآن...", "جاري الاستعادة");
+                }
+                else if (file.Name.EndsWith(".rsc", StringComparison.OrdinalIgnoreCase))
+                {
+                    await _routerService.ExecuteCommandAsync("/import", new Dictionary<string, string> { { "file-name", file.Name } });
+                    try { await _routerService.ExecuteCommandAsync("/file/remove", new Dictionary<string, string> { { "numbers", file.Name } }); } catch { }
+                    await _dialogService.ShowAlertAsync("تم استيراد إعدادات النظام بنجاح.", "نجاح");
+                }
+            }
         }
         catch (Exception ex)
         {
-            await _dialogService.ShowAlertAsync($"فشل في تصدير الإعدادات: {ex.Message}", "خطأ");
+            await _dialogService.ShowAlertAsync($"فشل أثناء استعادة النسخة الاحتياطية: {ex.Message}", "خطأ");
         }
         finally
         {
@@ -267,19 +496,22 @@ public partial class BackupsViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private async Task DeleteFileAsync(BackupFileItem? file)
     {
-        if (file == null) return;
+        if (file == null || string.IsNullOrEmpty(file.FilePath)) return;
 
-        bool confirm = await _dialogService.ShowConfirmationAsync($"هل أنت متأكد من حذف الملف {file.Name}؟");
+        bool confirm = await _dialogService.ShowConfirmationAsync($"هل أنت متأكد من حذف الملف {file.Name} نهائياً من جهاز الكمبيوتر؟");
         if (!confirm) return;
 
         try
         {
-            await _routerService.ExecuteCommandAsync("/file/remove", new Dictionary<string, string> { { "numbers", file.Id } });
+            if (File.Exists(file.FilePath))
+            {
+                File.Delete(file.FilePath);
+            }
             await LoadDataAsync();
         }
         catch (Exception ex)
         {
-            await _dialogService.ShowAlertAsync($"فشل في حذف الملف: {ex.Message}", "خطأ");
+            await _dialogService.ShowAlertAsync($"فشل في حذف الملف المحلي: {ex.Message}", "خطأ");
         }
     }
 
@@ -302,9 +534,10 @@ public partial class BackupsViewModel : ViewModelBase, IDisposable
         });
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         _activeRouterContext.ActiveRouterChanged -= OnActiveRouterChanged;
+        base.Dispose();
         GC.SuppressFinalize(this);
     }
 }

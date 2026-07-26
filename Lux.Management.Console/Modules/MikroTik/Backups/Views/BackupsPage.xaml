@@ -19,48 +19,64 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="النسخ الاحتياطي (Backups)" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <TextBlock Grid.Column="0" Text="النسخ الاحتياطي (Backups)" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}"/>
             
-            <Button Grid.Column="1" Command="{Binding CreateBackupCommand}" Style="{StaticResource ButtonPrimary}" Content="إنشاء Backup" Margin="0,0,10,0"/>
-            <Button Grid.Column="2" Command="{Binding CreateExportCommand}" Style="{StaticResource ButtonSuccess}" Content="تصدير Export (.rsc)" Margin="0,0,10,0"/>
-            <Button Grid.Column="3" Command="{Binding LoadDataCommand}" Style="{StaticResource ButtonDefault}" Content="تحديث"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Command="{Binding CreateBackupCommand}" Style="{StaticResource ButtonPrimary}" Content="إنشاء نسخة احتياطية 📥" Margin="0,0,10,0"/>
+                <Button Command="{Binding LoadDataCommand}" Style="{StaticResource ButtonDefault}" Content="تحديث 🔄"/>
+            </StackPanel>
         </Grid>
 
         <hc:LoadingCircle Grid.Row="1" Visibility="{Binding IsLoading, Converter={StaticResource Boolean2VisibilityConverter}}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
         
         <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerBrush}" Visibility="{Binding ErrorMessage, Converter={StaticResource String2VisibilityConverter}}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
-        <DataGrid Grid.Row="1" ItemsSource="{Binding Files}" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="All" Background="Transparent" BorderThickness="0"
-                  Visibility="{Binding IsLoading, Converter={StaticResource Boolean2VisibilityReConverter}}">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="اسم الملف" Binding="{Binding Name}" Width="*"/>
-                <DataGridTextColumn Header="النوع" Binding="{Binding Type}" Width="*"/>
-                <DataGridTextColumn Header="تاريخ الإنشاء" Binding="{Binding CreationTime}" Width="*"/>
-                <DataGridTextColumn Header="الحجم" Binding="{Binding Size}" Width="*"/>
-                
-                <DataGridTemplateColumn Header="إجراءات" Width="Auto">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                <Button Command="{Binding DataContext.DownloadFileCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
-                                        CommandParameter="{Binding}" 
-                                        Style="{StaticResource ButtonPrimary}" 
-                                        Content="تنزيل 📥"
-                                        ToolTip="تنزيل إلى الكمبيوتر (القرص D)" Padding="10,4" Margin="5,0"/>
-                                <Button Command="{Binding DataContext.DeleteFileCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
-                                        CommandParameter="{Binding}" 
-                                        Style="{StaticResource ButtonDanger}" 
-                                        Content="حذف 🗑️"
-                                        ToolTip="حذف من الراوتر" Padding="10,4" Margin="5,0"/>
-                            </StackPanel>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-            </DataGrid.Columns>
-        </DataGrid>
+        <Border Grid.Row="1" 
+                VerticalAlignment="Stretch" 
+                HorizontalAlignment="Stretch" 
+                BorderBrush="{DynamicResource BorderBrush}" 
+                BorderThickness="1" 
+                CornerRadius="12" 
+                ClipToBounds="True" 
+                Background="{DynamicResource CardBrush}" 
+                Visibility="{Binding IsLoading, Converter={StaticResource Boolean2VisibilityReConverter}}">
+            <DataGrid ItemsSource="{Binding Files}" 
+                      Style="{StaticResource HighDensityDataGridStyle}"
+                      ColumnHeaderStyle="{StaticResource HighDensityColumnHeaderStyle}"
+                      AutoGenerateColumns="False" 
+                      IsReadOnly="True" 
+                      HeadersVisibility="All" 
+                      Background="Transparent" 
+                      BorderThickness="0">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="اسم النسخة" Binding="{Binding Name}" Width="1.5*"/>
+                    <DataGridTextColumn Header="النوع" Binding="{Binding Type}" Width="0.8*"/>
+                    <DataGridTextColumn Header="تاريخ الإنشاء" Binding="{Binding CreationTime}" Width="1.2*"/>
+                    <DataGridTextColumn Header="الحجم" Binding="{Binding Size}" Width="0.6*"/>
+                    <DataGridTextColumn Header="مسار الملف" Binding="{Binding FilePath}" Width="2*"/>
+                    
+                    <DataGridTemplateColumn Header="إجراءات" Width="Auto">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button Command="{Binding DataContext.RestoreFileCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                            CommandParameter="{Binding}" 
+                                            Style="{StaticResource ButtonSuccess}" 
+                                            Content="استعادة ↩️"
+                                            ToolTip="استعادة هذه النسخة على الراوتر" Padding="10,4" Margin="5,0"/>
+                                    <Button Command="{Binding DataContext.DeleteFileCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                            CommandParameter="{Binding}" 
+                                            Style="{StaticResource ButtonDanger}" 
+                                            Content="حذف 🗑️"
+                                            ToolTip="حذف نهائياً من الكمبيوتر" Padding="10,4" Margin="5,0"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
     </Grid>
 </UserControl>
 

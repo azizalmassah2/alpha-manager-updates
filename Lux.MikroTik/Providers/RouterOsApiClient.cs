@@ -102,6 +102,36 @@ public class RouterOsApiClient : IRouterOsApiClient, IDisposable
         return false;
     }
 
+    private bool IsRouterCommandException(Exception ex)
+    {
+        // TikCommandException means the router understood our command but returned an error (e.g. "no such command or directory")
+        // This is NOT a connection drop — it is a command-level error.
+        if (ex is tik4net.TikCommandException)
+            return true;
+        if (ex.InnerException != null)
+            return IsRouterCommandException(ex.InnerException);
+        return false;
+    }
+
+    private static bool IsWriteCommand(string command)
+    {
+        // Write commands need NameValue parameter format (=key=value) instead of filter format (?key=value).
+        // Read commands (print, getall) do NOT need NameValue — their parameters are filters.
+        return command.EndsWith("/add", StringComparison.OrdinalIgnoreCase)
+            || command.EndsWith("/set", StringComparison.OrdinalIgnoreCase)
+            || command.EndsWith("/remove", StringComparison.OrdinalIgnoreCase)
+            || command.EndsWith("/enable", StringComparison.OrdinalIgnoreCase)
+            || command.EndsWith("/disable", StringComparison.OrdinalIgnoreCase)
+            || command.EndsWith("/unset", StringComparison.OrdinalIgnoreCase)
+            || command.EndsWith("/move", StringComparison.OrdinalIgnoreCase)
+            || command.EndsWith("/import", StringComparison.OrdinalIgnoreCase)
+            || command.EndsWith("/export", StringComparison.OrdinalIgnoreCase)
+            || command.EndsWith("/save", StringComparison.OrdinalIgnoreCase)
+            || command.EndsWith("/load", StringComparison.OrdinalIgnoreCase)
+            || command.EndsWith("/reboot", StringComparison.OrdinalIgnoreCase)
+            || command.EndsWith("/shutdown", StringComparison.OrdinalIgnoreCase);
+    }
+
     private async Task<IEnumerable<ITikSentence>> ExecuteWithRetryAsync(string command, string[] parameters)
     {
         if (_connection == null || !_connection.IsOpened)
@@ -131,14 +161,27 @@ public class RouterOsApiClient : IRouterOsApiClient, IDisposable
                     ? _connection.CreateCommand(command) 
                     : _connection.CreateCommandAndParameters(command, parameters);
                 
-                if (command.StartsWith("/tool/user-manager", StringComparison.OrdinalIgnoreCase) &&
-                    !command.EndsWith("/print", StringComparison.OrdinalIgnoreCase))
+                // Apply NameValue format for all write commands (add/set/remove/enable/disable/unset)
+                // Without this, tik4net sends parameters as filter queries (?key=value) instead of
+                // write parameters (=key=value), which causes RouterOS errors like 'vlan-id bad'.
+                if (IsWriteCommand(command))
                 {
                     cmd.DefaultParameterFormat = tik4net.TikCommandParameterFormat.NameValue;
                 }
                 
                 return cmd.ExecuteList();
             });
+        }
+        catch (Exception ex) when (IsRouterCommandException(ex))
+        {
+            // The router returned a command-level error (e.g. "no such command or directory").
+            // tik4net closes the TCP socket after this — silently re-open it so subsequent commands work.
+            if (_lastOptions != null)
+            {
+                try { await ReconnectInternalAsync(); } catch { }
+            }
+            // Re-throw the original exception so callers that wrap in try/catch can handle it gracefully.
+            throw;
         }
         catch (Exception ex) when (IsConnectionException(ex))
         {
@@ -153,8 +196,7 @@ public class RouterOsApiClient : IRouterOsApiClient, IDisposable
                             ? _connection.CreateCommand(command) 
                             : _connection.CreateCommandAndParameters(command, parameters);
                         
-                        if (command.StartsWith("/tool/user-manager", StringComparison.OrdinalIgnoreCase) &&
-                            !command.EndsWith("/print", StringComparison.OrdinalIgnoreCase))
+                        if (IsWriteCommand(command))
                         {
                             cmd.DefaultParameterFormat = tik4net.TikCommandParameterFormat.NameValue;
                         }
