@@ -1,27 +1,27 @@
 {
   "schemaVersion": 1,
-  "lastUpdated": "2026-07-26T23:30:00Z",
+  "lastUpdated": "2026-08-03T00:28:00Z",
   "generatedBy": "Alpha Manager Build System",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "updateType": "mandatory",
-  "mandatory": false,
-  "minimumSupportedVersion": "2.0.4",
-  "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.5/AlphaManagerSetup_v2.0.5.exe",
-  "sha256": "f234c2fa986b0179796cb1933e73d70dd18a2234683ab840abe00783c11f491a",
-  "fileSize": 86444539,
-  "releaseDate": "2026-07-26",
+  "mandatory": true,
+  "minimumSupportedVersion": "2.0.5",
+  "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.6/AlphaManagerSetup_v2.0.6.exe",
+  "sha256": "aa79593f48e3183512e2c67feff0dfbd896800a30eae7a83f303d0c21b379d53",
+  "fileSize": 86448512,
+  "releaseDate": "2026-08-03",
   "releaseNotes": [
-    "إصلاح شامل لمشكلة ترقية مخطط قاعدة البيانات SQLite لضمان إضافة عمود SystemType وحل خطأ no such column p.SystemType على أجهزة العملاء.",
-    "تحديث محرك إنشاء واجهات VLAN وطريقة البريدج فيلتر مع الاختيار التلقائي لأول بريدج متوفر على الراوتر وتجنب تعارض أسماء DHCP Server.",
-    "إضافة عمود مراقبة حالة سرفر الهوت سبوت (يعمل / متوقف / لا يوجد) في جدول الفيلانات وتفعيله تلقائياً عند الإنشاء.",
-    "استثناء البريدجات من حساب أعلى VLAN استهلاكاً لمنع التضليل وحساب أعلى VLAN استهلاكاً حقيقي."
+    "إصلاح وتأمين عملية التوليد والمزامنة مع راوتر المايكروتك وحظر إنشاء ملف PDF عند عدم اكتمال إضافة الكروت.",
+    "إضافة نظام المراقبة التفاعلي للاتصال وإظهار شريط تنبيه برتقالي فوري عند انقطاع الاتصال بالشبكة.",
+    "استرجاع وجلب باقات المايكروتك بدقة للراوتر المتصل وعزل بيانات الراوترات المختلفة.",
+    "تحسين شاشة مصمم القوالب وإخفاء القوالب النظامية الافتراضية لعرض القوالب المخصصة للمستخدم فقط."
   ],
-  "message": "تحديث مستقر v2.0.5! حل مشكلة قاعدة البيانات SQLite على أجهزة العملاء وتحسين شاشة إدارة الفيلانات والهوتسبوت.",
+  "message": "تحديث مستقر v2.0.6! حظر PDF عند فشل المزامنة، شريط انقطاع الاتصال، وعزل باقات الراوتر وقوالبه المخصصة.",
   "enabled": true,
   "extendedInfo": {
     "productName": "Alpha Manager",
     "officialName": "Alpha Manager for MikroTik Hotspot",
-    "buildNumber": 205,
+    "buildNumber": 206,
     "channel": "Stable",
     "publisherName": "Alpha Manager Team",
     "company": "LUXCARD",
@@ -41,22 +41,22 @@
       "English"
     ],
     "digitalSignatureStatus": "Self-Signed / Verified Checksum",
-    "buildTimestamp": "2026-07-26T23:30:00Z",
+    "buildTimestamp": "2026-08-03T00:28:00Z",
     "category": "Maintenance Update",
     "licenseType": "Commercial / Node-Locked to Router",
     "documentationUrl": "https://docs.alphamanager.app"
   },
   "structuredReleaseNotes": {
     "additions": [
-      "إضافة عمود حالة سرفر الهوت سبوت (يعمل/متوقف) في جدول الفيلانات وتفعيله تلقائياً.",
-      "جلب البريدجات تلقائياً من الراوتر في نافذة إضافة فيلان واختيار البريدج الأساسي تلقائياً."
+      "إضافة مراقبة تفاعلية لحالة اتصال الراوتر وإظهار بانر تنبيه فوري عند الانقطاع.",
+      "جلب وتصنيف باقات المايكروتك الخاصة بالراوتر المتصل بدقة."
     ],
     "improvements": [
-      "استثناء البريدجات من حساب أعلى VLAN استهلاكاً لمنع القراءات المضللة."
+      "تطبيق العزل التام لبيانات الراوترات المختلفة وحصر القوالب والباقات للراوتر النشط.",
+      "إخفاء القوالب الافتراضية النظامية في شاشة القوالب لعرض القوالب المخصصة فقط."
     ],
     "fixes": [
-      "إصلاح شامل لمشكلة ترقية مخطط قاعدة البيانات SQLite لضمان إضافة عمود SystemType مسبقاً وحل خطأ no such column p.SystemType.",
-      "إصلاح تعارض أسماء سيرفرات الـ DHCP عند إنشاء الفيلان بتسميتها dhcp-{vlanName}."
+      "حظر توليد وتصدير ملفات PDF للطباعة في حال عدم نجاح مزامنة الكروت بالكامل مع الراوتر."
     ],
     "security": [],
     "breakingChanges": [],
