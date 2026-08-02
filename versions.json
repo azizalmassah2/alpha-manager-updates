@@ -1,8 +1,33 @@
 {
   "schemaVersion": 1,
-  "lastUpdated": "2026-07-26T23:30:00Z",
+  "lastUpdated": "2026-08-03T00:28:00Z",
   "generatedBy": "Alpha Manager Build System",
   "data": [
+    {
+      "version": "2.0.6",
+      "buildNumber": 206,
+      "releaseDate": "2026-08-03",
+      "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.6/AlphaManagerSetup_v2.0.6.exe",
+      "fileSize": 86448512,
+      "sha256": "aa79593f48e3183512e2c67feff0dfbd896800a30eae7a83f303d0c21b379d53",
+      "supportStatus": "active",
+      "category": "Maintenance Update",
+      "releaseNotesSummary": "حظر PDF عند فشل المزامنة، شريط تنبيه انقطاع الاتصال، وتحديث جلب الباقات وشاشة القوالب المخصصة.",
+      "releaseNotes": {
+        "additions": [
+          "إضافة مراقبة تفاعلية لحالة اتصال الراوتر وإظهار بانر تنبيه فوري عند الانقطاع.",
+          "جلب وتصنيف باقات المايكروتك الخاصة بالراوتر المتصل بدقة."
+        ],
+        "improvements": [
+          "تطبيق العزل التام لبيانات الراوترات المختلفة وحصر القوالب والباقات للراوتر النشط.",
+          "إخفاء القوالب الافتراضية النظامية في شاشة القوالب لعرض القوالب المخصصة فقط."
+        ],
+        "fixes": [
+          "حظر توليد وتصدير ملفات PDF للطباعة في حال عدم نجاح مزامنة الكروت بالكامل مع الراوتر."
+        ],
+        "security": []
+      }
+    },
     {
       "version": "2.0.5",
       "buildNumber": 205,
