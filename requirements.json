@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "lastUpdated": "2026-07-19T01:57:00Z",
+  "generatedBy": "Alpha Manager Build System",
+  "supportedWindowsVersions": [
+    "Windows 10 (Build 19041 وأحدث)",
+    "Windows 11",
+    "Windows Server 2019",
+    "Windows Server 2022"
+  ],
+  "architecture": "x64 / x86 / ARM64 (مع محاكي)",
+  "minimum": {
+    "cpu": "Intel Core i3 أو ما يعادله ثنائي النواة بسرعة 2.0 GHz",
+    "ram": "4 GB",
+    "diskSpace": "200 MB مساحة فارغة للبرنامج",
+    "dotnetVersion": ".NET Desktop Runtime 8.0"
+  },
+  "recommended": {
+    "cpu": "Intel Core i5 أو ما يعادله رباعي النواة وأعلى",
+    "ram": "8 GB",
+    "diskSpace": "1 GB (لتخزين النسخ الاحتياطية وتخزين قواعد البيانات المتراكمة)",
+    "dotnetVersion": ".NET Desktop Runtime 8.0"
+  },
+  "additionalSoftware": [
+    "Microsoft Edge WebView2 Runtime (مدمج في ويندوز 11 وتثبيت تلقائي في 10 لحماية المعاينة)"
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "lastUpdated": "2026-07-19T01:57:00Z",
+  "generatedBy": "Alpha Manager Build System",
+  "data": [
+    {
+      "title": "لوحة التحكم الرئيسية",
+      "description": "واجهة عصرية لإدارة الرواترات المتصلة، وعرض حالة الأجهزة والشبكة والوصول السريع لجميع المهام.",
+      "imageUrl": "https://alphamanager.app/assets/screenshots/dashboard.png",
+      "category": "General",
+      "displayOrder": 1,
+      "isFeatured": true
+    },
+    {
+      "title": "مصمم القوالب التفاعلي",
+      "description": "تعديل وتحديد مواقع العناصر والنصوص ورمز الـ QR بدقة متناهية بالمليمتر ودعم كامل للطباعة الحرارية وشبكة A4.",
+      "imageUrl": "https://alphamanager.app/assets/screenshots/template_designer.png",
+      "category": "Voucher Printing",
+      "displayOrder": 2,
+      "isFeatured": true
+    },
+    {
+      "title": "محرر صفحات الـ Hotspot والمعاينة الآمنة",
+      "description": "تعديل بيانات وبيئات وتصميم قوالب صفحات الـ Hotspot مع المعاينة الحية المشفرة بالذاكرة لحمايتها من السرقة.",
+      "imageUrl": "https://alphamanager.app/assets/screenshots/hotspot_editor.png",
+      "category": "Hotspot Management",
+      "displayOrder": 3,
+      "isFeatured": true
+    },
+    {
+      "title": "إدارة تراخيص الراوتر المحمولة",
+      "description": "تفعيل وإدارة التراخيص المشفرة المرفوعة تلقائياً للراوترات المتعددة لتنقل مرن دون استيراد وتصدير يدوي.",
+      "imageUrl": "https://alphamanager.app/assets/screenshots/licensing_manager.png",
+      "category": "Licensing",
+      "displayOrder": 4,
+      "isFeatured": false
+    },
+    {
+      "title": "إدارة كروت الشبكة والطباعة",
+      "description": "إضافة الكروت والسرعات وتوليد الحسابات للعملاء بسلاسة تامة وتصديرها للطباعة المباشرة.",
+      "imageUrl": "https://alphamanager.app/assets/screenshots/voucher_manager.png",
+      "category": "Voucher Printing",
+      "displayOrder": 5,
+      "isFeatured": false
+    }
+  ]
+}
