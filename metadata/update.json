@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "lastUpdated": "2026-08-04T15:54:00Z",
+  "lastUpdated": "2026-08-04T16:31:00Z",
   "generatedBy": "Alpha Manager Build System",
   "version": "2.0.7",
   "updateType": "mandatory",
   "mandatory": true,
   "minimumSupportedVersion": "2.0.5",
   "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.7/AlphaManagerSetup_v2.0.7.exe",
-  "sha256": "baaa9dcf45f514964d5dacc36e579476325ffd8a6accb568d72c5e9bb85e325a",
-  "fileSize": 48955040,
+  "sha256": "984c407cb63aa74f4396b77aae2af8c4ecf037619e2e041dde5e5722c74d2284",
+  "fileSize": 71666061,
   "releaseDate": "2026-08-04",
   "releaseNotes": [
     "منع انبثاق نافذة تحديد مجلد الهوتسبوت تلقائياً في الخلفية عند تبديل الراوتر أو الشاشات وحصرها عند الطلب الصريح.",
@@ -40,7 +40,7 @@
       "English"
     ],
     "digitalSignatureStatus": "Self-Signed / Verified Checksum",
-    "buildTimestamp": "2026-08-04T15:54:00Z",
+    "buildTimestamp": "2026-08-04T16:31:00Z",
     "category": "Maintenance Update",
     "licenseType": "Commercial / Node-Locked to Router",
     "documentationUrl": "https://docs.alphamanager.app"
