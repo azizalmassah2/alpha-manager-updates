@@ -102,10 +102,17 @@ namespace Lux.Management.Console.Modules.MikroTik.UserManager.Vouchers.Views
 
         private void BtnRowMenu_Click(object sender, System.Windows.RoutedEventArgs e)
         {
-            if (sender is Button btn && btn.ContextMenu != null)
+            if (sender is Button btn)
             {
-                btn.ContextMenu.PlacementTarget = btn;
-                btn.ContextMenu.IsOpen = true;
+                if (btn.DataContext is VoucherDto voucher && DataContext is VoucherManagementViewModel vm)
+                {
+                    vm.SelectedVoucher = voucher;
+                }
+                if (btn.ContextMenu != null)
+                {
+                    btn.ContextMenu.PlacementTarget = btn;
+                    btn.ContextMenu.IsOpen = true;
+                }
             }
         }
 
@@ -135,6 +142,17 @@ namespace Lux.Management.Console.Modules.MikroTik.UserManager.Vouchers.Views
                             _ = vm.LoadNextPageAsync();
                         }
                     }
+                }
+            }
+        }
+
+        private void VouchersDataGridRow_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is DataGridRow row && row.DataContext is VoucherDto voucher && DataContext is VoucherManagementViewModel vm)
+            {
+                if (vm.ShowVoucherDetailsCommand.CanExecute(voucher))
+                {
+                    vm.ShowVoucherDetailsCommand.Execute(voucher);
                 }
             }
         }

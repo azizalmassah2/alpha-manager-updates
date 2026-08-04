@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MikroTikVoucherPrinter.Domain.Interfaces;
 using MikroTikVoucherPrinter.Infrastructure.Services;
+using MikroTikVoucherPrinter.Infrastructure.Services.CommandProviders;
 using Lux.Platform.Abstractions.Interfaces;
 using MikroTikVoucherPrinter.Application.Interfaces.Operations;
 using MikroTikVoucherPrinter.Domain.Interfaces.Platform;
@@ -48,10 +49,17 @@ public static class DependencyInjection
         services.AddScoped<IVoucherRepository, Repositories.VoucherRepository>();
         services.AddScoped<Application.Interfaces.IVoucherQueryService, Services.VoucherQueryService>();
         services.AddScoped<Application.Interfaces.ISalesQueryService, Services.SalesQueryService>();
+        services.AddScoped<Application.Interfaces.IVlanTelemetryService, Services.VlanTelemetryService>();
         services.AddScoped<Application.Interfaces.IVoucherImportService, Services.VoucherImportService>();
         services.AddScoped<Application.Interfaces.IVoucherRestoreService, Services.VoucherRestoreService>();
         services.AddSingleton<Application.Interfaces.IVoucherCacheService, Services.VoucherCacheService>();
         services.AddSingleton<Application.Interfaces.IProfileCacheService, Services.ProfileCacheService>();
+
+        // ══ Batch-Centric Architecture ══
+        services.AddScoped<Domain.Interfaces.IBatchRepository, Repositories.BatchRepository>();
+        services.AddScoped<Application.Interfaces.IBatchQueryService, Services.BatchQueryService>();
+        services.AddScoped<Application.Interfaces.IBatchService, Services.BatchService>();
+        services.AddScoped<Services.BatchMigrationService>();
         
         // Services (Printing & Migration)
         services.AddTransient<Templates.IPrintTemplate, Templates.A4GridTemplate>();
@@ -73,6 +81,27 @@ public static class DependencyInjection
         services.AddSingleton<Application.Interfaces.IRouterCapabilityService, Services.RouterCapabilityService>();
         services.AddScoped<Application.Interfaces.IProfileService, Services.ProfileService>();
         services.AddScoped<Application.Interfaces.IAgentService, Services.AgentService>();
+
+        // ══ RouterOS Command Provider Layer ══════════════════════════════════════════
+        // مزودات الأوامر — كل مزود يُسجَّل كـ IMikroTikCommandProvider
+        services.AddSingleton<Application.Interfaces.IMikroTikCommandProvider, RouterOsV6CommandProvider>();
+        services.AddSingleton<Application.Interfaces.IMikroTikCommandProvider, RouterOsV7CommandProvider>();
+        services.AddSingleton<Application.Interfaces.IMikroTikCommandProvider, HotspotCommandProvider>();
+        // Factory يختار المزود المناسب بناءً على RouterCapabilityService Cache
+        services.AddSingleton<Application.Interfaces.IMikroTikCommandProviderFactory, MikroTikCommandProviderFactory>();
+
+        // ══ Maintenance Script Provider Layer ════════════════════════════════════════
+        // مزودات الاسكريبتات — كل مزود يُسجَّل كـ IMaintenanceScriptProvider
+        services.AddSingleton<Application.Interfaces.IMaintenanceScriptProvider, V6MaintenanceScriptProvider>();
+        services.AddSingleton<Application.Interfaces.IMaintenanceScriptProvider, V7MaintenanceScriptProvider>();
+        services.AddSingleton<Application.Interfaces.IMaintenanceScriptProvider, HotspotMaintenanceScriptProvider>();
+        // Factory يختار المزود المناسب بناءً على RouterCapabilityService Cache
+        services.AddSingleton<Application.Interfaces.IMaintenanceScriptProviderFactory, MaintenanceScriptProviderFactory>();
+
+        // ══ خدمة Provisioning المستقلة ═══════════════════════════════════════════
+        // تستخدم IMikroTikCommandProviderFactory — لا ترث من LegacyMikroTikIntegrationService
+        services.AddScoped<Services.MikroTikProvisioningService>();
+        services.AddScoped<Services.MaintenanceService>();
 
         // Operations & Execution Framework
         services.AddSingleton<System.Threading.Channels.Channel<Domain.Entities.Operations.OperationJob>>(_ => 

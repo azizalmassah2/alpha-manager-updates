@@ -23,6 +23,7 @@ using DeviceRgb       = iText.Kernel.Colors.DeviceRgb;
 using PdfRect         = iText.Kernel.Geom.Rectangle;
 using SysBitmap       = System.Drawing.Bitmap;
 using SysImage        = System.Drawing.Image;
+using MikroTikVoucherPrinter.Infrastructure.Printing;
 
 namespace MikroTikVoucherPrinter.Infrastructure.Templates;
 
@@ -37,7 +38,12 @@ public class CustomGridTemplate : IPrintTemplate
         _config = config;
     }
 
-    public void LayoutDocument(Document document, List<VoucherDto> vouchers, PrintSettingsDto settings, PdfFont arabicFont)
+    public void LayoutDocument(
+        Document document,
+        List<VoucherDto> vouchers,
+        PrintSettingsDto settings,
+        PdfFont arabicFont,
+        IProgress<(int currentPage, int totalPages, string statusText)>? progress = null)
     {
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         //  Absolute Grid Layout (A4) â€” ظٹط·ط§ط¨ظ‚ ظ…ط®ط±ط¬ط§طھ ط§ظ„ط·ط¨ط§ط¹ط© ط§ظ„ظ†ظ‡ط§ط¦ظٹط©
@@ -96,18 +102,25 @@ public class CustomGridTemplate : IPrintTemplate
         // ظ…ط³ط§ط¹ط¯ط© ظ„ط­ط³ط§ط¨ ظ†ظ‚ط·ط© ط¨ط¯ط§ظٹط© ط§ظ„ط´ط¨ظƒط© ط¯ط§ط®ظ„ ط§ظ„طµظپط­ط© (ظ…ظ† ط£ط¹ظ„ظ‰ ظٹط³ط§ط±)
         float top = pageSize.GetTop() - topMargin;
 
-        // ط¥ط¶ط§ظپط© ط§ظ„طµظپط­ط© ط§ظ„ط£ظˆظ„ظ‰ ظٹط¯ظˆظٹط§ظ‹ - ظ…ط·ظ„ظˆط¨ ظ‚ط¨ظ„ ط£ظٹ ط§ط³طھط¯ط¹ط§ط، ظ„ظ€ GetLastPage()
+        // إضافة الصفحة الأولى يدويّاً
         pdfDoc.AddNewPage(pageSize);
+
+        int totalPages = (int)Math.Max(1, Math.Ceiling((double)vouchers.Count / perPage));
 
         for (int i = 0; i < vouchers.Count; i++)
         {
-            // ظƒظ„ ظ…ط§ ط¨ط¯ط£ظ†ط§ طµظپط­ط© ط¬ط¯ظٹط¯ط© (ط¨ط¹ط¯ ط§ظ„ط£ظˆظ„ظ‰) ظ†ط¶ظٹظپ طµظپط­ط© ط¬ط¯ظٹط¯ط©
-            if (i > 0 && i % perPage == 0)
+            int currentPage = (i / perPage) + 1;
+            int indexOnPage = i % perPage;
+
+            if (indexOnPage == 0)
+            {
+                progress?.Report((currentPage, totalPages, $"جاري رسم صفحة الكروت ({currentPage} من {totalPages})..."));
+            }
+
+            if (i > 0 && indexOnPage == 0)
             {
                 pdfDoc.AddNewPage(pageSize);
             }
-
-            int indexOnPage = i % perPage;
             int r = indexOnPage / cols;
             int c = indexOnPage % cols;
 
@@ -115,7 +128,6 @@ public class CustomGridTemplate : IPrintTemplate
             float yTop = top - r * cellHeight - (gapYPt / 2f);
             float y = yTop - cardHeightPt;
 
-            // ط§ط±ط³ظ… ظپظ‚ط· ط¯ط§ط®ظ„ ط§ظ„طµظپط­ط© (ظ…ظ†ط¹ ط§ظ„ط®ط±ظˆط¬ ط¥ط°ط§ ظƒط§ظ†طھ ط§ظ„ط¥ط¹ط¯ط§ط¯ط§طھ ط£ظƒط¨ط± ظ…ظ† ط§ظ„طµظپط­ط©)
             if (y < bottomMargin - 1f)
                 continue;
 
@@ -123,8 +135,14 @@ public class CustomGridTemplate : IPrintTemplate
             var canvas = new PdfCanvas(pdfDoc.GetLastPage());
             var renderCanvas = new Canvas(canvas, rect);
 
-            CustomGridTemplateDrawing.DrawCard(renderCanvas, rect, vouchers[i], bgImageData, logoImageData, fontColor, frameColor, frameSizePt, arabicFont, settings, _config);
+            // [NEW ARCHITECTURE] توليد صورة الكرت بدقة 300 DPI عبر محرك الرسم الموحد وإدراجها بالـ PDF
+            byte[] cardJpegBytes = VoucherCardGraphicRenderer.RenderCardToJpegBytes(_config, vouchers[i], dpi: 300, quality: settings.ImageQuality);
+            var cardImage = new Image(ImageDataFactory.Create(cardJpegBytes))
+                .SetFixedPosition(x, y)
+                .SetWidth(cardWidthPt)
+                .SetHeight(cardHeightPt);
 
+            renderCanvas.Add(cardImage);
             renderCanvas.Close();
         }
     }
@@ -343,7 +361,7 @@ internal static class CustomGridTemplateDrawing
         if (bgImageData != null)
             renderCanvas.Add(new Image(bgImageData).SetFixedPosition(x, y).SetWidth(w).SetHeight(h));
 
-        // 2) ط§ظ„ط¥ط·ط§ط±
+        // 2) الإطار
         if (frameSizePt > 0.1f)
         {
             var c = renderCanvas.GetPdfCanvas();
@@ -356,7 +374,7 @@ internal static class CustomGridTemplateDrawing
             c.RestoreState();
         }
 
-        // 3) ط§ظ„ط´ط¹ط§ط±
+        // 3) الشعار
         if (logoImageData != null)
         {
             float logoW = Math.Min(w * 0.18f, 45f);
@@ -365,48 +383,48 @@ internal static class CustomGridTemplateDrawing
                 .SetWidth(logoW).SetHeight(logoW));
         }
 
+        // [FIX I-03] معامل خط 2.25f لتحويل حجم الخط من مم إلى نقاط PDF لتطابق المعاينة
         float fs = Math.Max(4f, config.FontSize * 2.25f);
 
-        // Canvas.Left ظپظٹ WPF+RTL ظٹظ‚ظٹط³ ظ…ظ† ظٹظ…ظٹظ† ط§ظ„ظƒط±طھ (ظٹظ…ظٹظ† = 0)
-        // ظ„ط°ط§ ظ†ط¹ظƒط³ ط§ظ„ظ…ط­ظˆط±: ظٹظ…ظٹظ† ط§ظ„ظ†طµ = x + w - mmX*mmToPt
-        // ظ†ط³طھط®ط¯ظ… طµظ†ط¯ظˆظ‚ 200pt ظ…ط¹ ظ…ط­ط§ط°ط§ط© RIGHT
-        float PdfX(float mmX) => x + w - mmX * mmToPt - 200f;
-        float PdfY(float mmY) => y + h - (mmY * mmToPt) - fs - 3f;
+        // إحداثيات سين وصاد تحسب مباشرةً من أعلى ويسار الكرت بنفس طريقة WPF Canvas
+        float PdfX(float mmX) => x + (mmX * mmToPt);
+        float PdfY(float mmY) => y + h - (mmY * mmToPt) - fs;
 
+        float GetAvailableWidth(float mmX) => Math.Max(30f, w - (mmX * mmToPt));
 
-        // 4) ط±ط³ظ… ط§ظ„ط¹ظ†ط§طµط± ط­ط³ط¨ ط¥ط¹ط¯ط§ط¯ط§طھ ط§ظ„ظ‚ط§ظ„ط¨
+        // 4) رسم العناصر حسب إعدادات القالب
         if (config.ShowUsername)
             DrawText(renderCanvas, voucher.Username,
-                PdfX(config.UsernameX), PdfY(config.UsernameY), 200f, fs, fontColor, arabicFont);
+                PdfX(config.UsernameX), PdfY(config.UsernameY), GetAvailableWidth(config.UsernameX), fs, fontColor, arabicFont);
 
         if (config.ShowPassword)
         {
-            string passText = voucher.CredentialMode == CredentialMode.UsernameOnly ? "(ط¨ط¯ظˆظ† ظƒظ„ظ…ط© ط³ط±)"
-                : voucher.CredentialMode == CredentialMode.UsernameEqualsPassword ? "ط³ط± = ظ…ط³طھط®ط¯ظ…"
+            string passText = voucher.CredentialMode == CredentialMode.UsernameOnly ? "(بدون كلمة سر)"
+                : voucher.CredentialMode == CredentialMode.UsernameEqualsPassword ? "السر = المستخدم"
                 : voucher.Password;
             DrawText(renderCanvas, passText,
-                PdfX(config.PasswordX), PdfY(config.PasswordY), 200f, fs, fontColor, arabicFont);
+                PdfX(config.PasswordX), PdfY(config.PasswordY), GetAvailableWidth(config.PasswordX), fs, fontColor, arabicFont);
         }
 
         if (config.ShowPrice && voucher.Price > 0)
-            DrawText(renderCanvas, $"{voucher.Price:0} ط±ظٹط§ظ„",
-                PdfX(config.PriceX), PdfY(config.PriceY), 200f, fs, fontColor, arabicFont);
+            DrawText(renderCanvas, $"{voucher.Price:0} ريال",
+                PdfX(config.PriceX), PdfY(config.PriceY), GetAvailableWidth(config.PriceX), fs, fontColor, arabicFont);
 
         if (config.ShowValidity && !string.IsNullOrEmpty(voucher.Profile))
             DrawText(renderCanvas, voucher.Profile,
-                PdfX(config.ValidityX), PdfY(config.ValidityY), 200f, fs, fontColor, arabicFont);
+                PdfX(config.ValidityX), PdfY(config.ValidityY), GetAvailableWidth(config.ValidityX), fs, fontColor, arabicFont);
 
         if (config.ShowSerialNumber)
             DrawText(renderCanvas, voucher.Id.ToString()[..8].ToUpper(),
-                PdfX(config.SerialNumberX), PdfY(config.SerialNumberY), 200f, fs, fontColor, arabicFont);
+                PdfX(config.SerialNumberX), PdfY(config.SerialNumberY), GetAvailableWidth(config.SerialNumberX), fs, fontColor, arabicFont);
 
         if (config.ShowPrintDate)
             DrawText(renderCanvas, DateTime.Now.ToString("yyyy/MM/dd"),
-                PdfX(config.PrintDateX), PdfY(config.PrintDateY), 200f, fs, fontColor, arabicFont);
+                PdfX(config.PrintDateX), PdfY(config.PrintDateY), GetAvailableWidth(config.PrintDateX), fs, fontColor, arabicFont);
 
         if (config.ShowTime && !string.IsNullOrEmpty(voucher.Profile))
-            DrawText(renderCanvas, $"âڈ± {voucher.Profile}",
-                PdfX(config.TimeX), PdfY(config.TimeY), 200f, fs, fontColor, arabicFont);
+            DrawText(renderCanvas, $"⏱ {voucher.Profile}",
+                PdfX(config.TimeX), PdfY(config.TimeY), GetAvailableWidth(config.TimeX), fs, fontColor, arabicFont);
 
         // QR Code
         if (config.ShowQr)
@@ -420,9 +438,9 @@ internal static class CustomGridTemplateDrawing
                 byte[] qrBytes = qrCode.GetGraphic(3);
                 float qrSize = config.QrSize * mmToPt;
                 
-                // ط­ط³ط§ط¨ X ظ…ظ† ط§ظ„ظٹظ…ظٹظ† ظ„طھط·ط§ط¨ظ‚ ط¥ط­ط¯ط§ط«ظٹط§طھ ط§ظ„ظ†طµظˆطµ
-                float qrPdfX = x + w - config.QrX * mmToPt - qrSize;
-                float qrPdfY = y + h - config.QrY * mmToPt - qrSize;
+                // حساب X و Y مباشرةً من أعلى ويسار الكرت (مطابق لـ Canvas)
+                float qrPdfX = x + (config.QrX * mmToPt);
+                float qrPdfY = y + h - (config.QrY * mmToPt) - qrSize;
                 
                 renderCanvas.Add(new Image(ImageDataFactory.Create(qrBytes))
                     .SetFixedPosition(qrPdfX, qrPdfY)
@@ -440,7 +458,7 @@ internal static class CustomGridTemplateDrawing
             .SetFont(font)
             .SetFontSize(fontSize)
             .SetFontColor(PdfColor)
-            .SetTextAlignment(TextAlignment.RIGHT)
+            .SetTextAlignment(TextAlignment.LEFT)
             .SetFixedPosition(px, py, width));
     }
 }

@@ -82,7 +82,7 @@ public class VoucherImportService : IVoucherImportService
             Id = batchId,
             Name = legacyBatchName,
             ProfileName = "Legacy",
-            TotalCount = 0,
+            TotalCards = 0,
             RouterId = routerId
         };
         
@@ -304,7 +304,7 @@ public class VoucherImportService : IVoucherImportService
         var batch = await db.Batches.FirstOrDefaultAsync(b => b.Id == batchId, cancellationToken);
         if (batch != null)
         {
-            batch.TotalCount += vouchers.Count;
+            batch.TotalCards += vouchers.Count;
         }
 
         await db.SaveChangesAsync(cancellationToken);

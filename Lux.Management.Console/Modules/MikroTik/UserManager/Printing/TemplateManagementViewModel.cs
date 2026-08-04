@@ -1,4 +1,5 @@
-using System;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -49,6 +50,9 @@ namespace Lux.Management.Console.Modules.MikroTik.UserManager.Printing.ViewModel
         [ObservableProperty]
         private TemplateConfig? _selectedTemplate;
 
+        [ObservableProperty]
+        private ImageSource? _cardPreviewImage;
+
         partial void OnSelectedTemplateChanged(TemplateConfig? value)
         {
             SaveCommand.NotifyCanExecuteChanged();
@@ -56,7 +60,48 @@ namespace Lux.Management.Console.Modules.MikroTik.UserManager.Printing.ViewModel
             BrowseBackgroundCommand.NotifyCanExecuteChanged();
             BrowseLogoCommand.NotifyCanExecuteChanged();
             PreviewTemplateCommand.NotifyCanExecuteChanged();
+
+            if (value != null)
+            {
+                value.PropertyChanged -= SelectedTemplate_PropertyChanged;
+                value.PropertyChanged += SelectedTemplate_PropertyChanged;
+            }
+
             UpdatePreviewCards();
+            UpdateCardPreviewImage();
+        }
+
+        private void SelectedTemplate_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            UpdateCardPreviewImage();
+        }
+
+        public void UpdateCardPreviewImage()
+        {
+            if (SelectedTemplate == null) return;
+            try
+            {
+                var dummyVoucher = new VoucherDto
+                {
+                    Id = Guid.NewGuid(),
+                    Username = "123456789",
+                    Password = "123456789",
+                    Profile = SelectedTemplate.LinkedProfileName ?? "300MB",
+                    Price = 500,
+                    CredentialMode = CredentialMode.UsernameAndPassword,
+                    Status = VoucherStatus.Unused
+                };
+                byte[] bytes = MikroTikVoucherPrinter.Infrastructure.Printing.VoucherCardGraphicRenderer.RenderCardToPngBytes(SelectedTemplate, dummyVoucher, dpi: 300);
+                using var ms = new MemoryStream(bytes);
+                var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+                bitmap.BeginInit();
+                bitmap.StreamSource = ms;
+                bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                bitmap.EndInit();
+                bitmap.Freeze();
+                CardPreviewImage = bitmap;
+            }
+            catch { /* Ignore */ }
         }
 
         [ObservableProperty]
@@ -109,8 +154,8 @@ namespace Lux.Management.Console.Modules.MikroTik.UserManager.Printing.ViewModel
                     Templates.Clear();
                     foreach (var t in data) 
                     {
-                        // إخفاء قالب ملف نصي TXT من مصمم القوالب
-                        if (t.Id != BuiltInTemplateIds.TxtTemplate)
+                        // إخفاء القوالب النظامية من مصمم القوالب المخصصة
+                        if (!t.IsSystemTemplate)
                         {
                             Templates.Add(t);
                         }

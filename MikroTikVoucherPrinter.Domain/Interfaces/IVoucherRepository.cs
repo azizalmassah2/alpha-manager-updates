@@ -9,9 +9,23 @@ public interface IVoucherRepository : IGenericRepository<Voucher>
     Task<Voucher?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Voucher>> GetPendingSyncAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Voucher>> GetFailedSyncAsync(CancellationToken cancellationToken = default);
-    
+
     /// <summary>
-    /// ط¥ط¶ط§ظپط© ط¢ظ„ط§ظپ ط§ظ„ط·ظ„ط¨ط§طھ ظپظٹ ط¯ظپط¹ط© ظˆط§ط­ط¯ط© ط¨ط¯ظˆظ† N+1 ظˆط¨ط£ط¯ط§ط، ط¹ط§ظ„ظٹ ظˆظ…ط¹ط§ظ„ط¬ط© ط§ظ„طھظƒط±ط§ط± 
+    /// إضافة آلاف الطلبات في دفعة واحدة بدون N+1 وبأداء عالٍ ومعالجة التكرار
     /// </summary>
     Task<BulkInsertResult> BulkInsertSafelyAsync(IEnumerable<Voucher> vouchers, CancellationToken cancellationToken = default);
+
+    // ─── Batch-level Queries (استعلامات مباشرة — تجنب الذاكرة) ───────────────
+
+    /// <summary>
+    /// جلب كروت Pending لدفعة محددة مباشرة من قاعدة البيانات.
+    /// يُستخدم بدلاً من GetPendingSyncAsync + Where في الذاكرة.
+    /// </summary>
+    Task<IReadOnlyList<Voucher>> GetPendingByBatchIdAsync(Guid batchId, CancellationToken cancellationToken = default);
+
+    /// <summary>جلب الكروت الفاشلة لدفعة محددة مباشرة من قاعدة البيانات</summary>
+    Task<IReadOnlyList<Voucher>> GetFailedByBatchIdAsync(Guid batchId, CancellationToken cancellationToken = default);
+
+    /// <summary>عدد الكروت المزامنة بنجاح في دفعة محددة</summary>
+    Task<int> GetSyncedCountByBatchIdAsync(Guid batchId, CancellationToken cancellationToken = default);
 }

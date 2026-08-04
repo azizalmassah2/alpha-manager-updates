@@ -190,8 +190,13 @@ public partial class LoginViewModel : ObservableObject, IDisposable
         IsDiscovering = true;
         try
         {
-            var list = await _discoveryService.DiscoverDevicesAsync();
-            DiscoveredDevices = new ObservableCollection<DiscoveredDevice>(list);
+            var list = await _discoveryService.DiscoverDevicesAsync(_cts.Token);
+            var validList = list.Where(d => !string.IsNullOrWhiteSpace(d.MacAddress) && 
+                                            !d.MacAddress.Equals("Unknown", StringComparison.OrdinalIgnoreCase) && 
+                                            !d.MacAddress.Equals("—", StringComparison.OrdinalIgnoreCase) && 
+                                            d.MacAddress != "00:00:00:00:00:00" && 
+                                            d.MacAddress != "00-00-00-00-00-00").ToList();
+            DiscoveredDevices = new ObservableCollection<DiscoveredDevice>(validList);
         }
         catch { }
         finally
@@ -292,6 +297,16 @@ public partial class LoginViewModel : ObservableObject, IDisposable
 
     private void CompleteLogin(ApplicationSession session)
     {
+        try
+        {
+            if (!_cts.IsCancellationRequested)
+            {
+                _cts.Cancel();
+            }
+        }
+        catch { }
+        IsDiscovering = false;
+
         // تعيين الجلسة المركزية
         _sessionManager.SetSession(session);
 

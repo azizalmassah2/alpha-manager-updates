@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Windows;
 using Microsoft.Data.Sqlite;
+using MikroTikVoucherPrinter.Application.DTOs;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -17,16 +18,24 @@ public partial class UserReportWindow : Window
     private readonly string _userName;
     private string _dbPath;
     private string _routerName = "—";
+    private readonly VoucherDto? _voucher;
     
-    // بيانات التقرير
+    // بيانات التقرير الشاملة
     private string _profile = "—";
     private string _status = "—";
     private string _regDate = "—";
+    private string _firstUse = "—";
+    private string _expiryDate = "—";
+    private string _validityHours = "—";
     private string _lastSeen = "—";
     private string _download = "0 MB";
     private string _upload = "0 MB";
+    private string _remainingQuota = "—";
     private string _uptime = "0 دقيقة";
     private string _sessionsCount = "0";
+    private string _lastIp = "—";
+    private string _lastMac = "—";
+    private string _lastVlan = "—";
     private string _ips = "لا يوجد";
     private string _macs = "لا يوجد";
     
@@ -38,7 +47,7 @@ public partial class UserReportWindow : Window
     {
     }
 
-    public UserReportWindow(string userName, string dbPath, string routerName = "—", Dictionary<string, string>? leases = null)
+    public UserReportWindow(string userName, string dbPath, string routerName = "—", Dictionary<string, string>? leases = null, VoucherDto? voucher = null)
     {
         InitializeComponent();
         QuestPDF.Settings.License = LicenseType.Community;
@@ -47,6 +56,19 @@ public partial class UserReportWindow : Window
         TxtUserName.Text = userName;
         _dbPath = dbPath;
         _routerName = routerName;
+        _voucher = voucher;
+
+        if (_voucher != null)
+        {
+            if (!string.IsNullOrWhiteSpace(_voucher.Profile)) _profile = _voucher.Profile;
+            _status = _voucher.StatusText;
+            _regDate = _voucher.CreatedAt.ToString("yyyy/MM/dd HH:mm");
+            if (_voucher.DownloadUsedBytes.HasValue) _download = FormatBytes(_voucher.DownloadUsedBytes.Value);
+            if (_voucher.UploadUsedBytes.HasValue) _upload = FormatBytes(_voucher.UploadUsedBytes.Value);
+            if (_voucher.UsedAt.HasValue) _firstUse = _voucher.UsedAt.Value.ToString("yyyy/MM/dd HH:mm");
+            if (!string.IsNullOrEmpty(_voucher.QuotaSummaryText)) _remainingQuota = _voucher.QuotaSummaryText;
+        }
+
         if (leases != null)
         {
             foreach (var kv in leases)
@@ -60,45 +82,51 @@ public partial class UserReportWindow : Window
 
     private void LoadData()
     {
-        if (!File.Exists(_dbPath))
-        {
-            MessageBox.Show($"عذراً، لم يتم العثور على قاعدة البيانات في المسار:\n{_dbPath}", "تنبيه", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
+        long? userId = null;
+        long totalDl = 0, totalUl = 0, totalUp = 0;
+        long limitBytes = 0;
+        string validityStr = string.Empty;
+        long? tillTimeTs = null;
 
-        try
+        if (File.Exists(_dbPath))
         {
-            using var conn = new SqliteConnection($"Data Source={_dbPath};Mode=ReadOnly");
-            conn.Open();
-
-            // 1. معلومات المستخدم
-            using (var cmd = conn.CreateCommand())
+            try
             {
-                cmd.CommandText = "SELECT id, actualProfileName, disabled, uptimeUsed, downloadUsed, regDate, lastSeenAt FROM [user] WHERE CAST(userName AS TEXT) = @u LIMIT 1";
-                cmd.Parameters.AddWithValue("@u", _userName); 
-                using var reader = cmd.ExecuteReader();
-                if (reader.Read())
-                {
-                    long userId = reader.GetInt64(0);
-                    _profile = reader.IsDBNull(1) ? "—" : reader.GetString(1);
-                    
-                    int disabled = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
-                    long upUsed = reader.IsDBNull(3) ? 0 : reader.GetInt64(3);
-                    long dlUsed = reader.IsDBNull(4) ? 0 : reader.GetInt64(4);
-                    
-                    if (disabled == 1) _status = "مُعطَّل ❌";
-                    else if (upUsed > 0 || dlUsed > 0) _status = "مستخدم 🟢";
-                    else _status = "جاري الانتظار ⏳";
+                using var conn = new SqliteConnection($"Data Source={_dbPath};Mode=ReadOnly");
+                conn.Open();
 
-                    if (!reader.IsDBNull(5)) _regDate = GetRelativeTime(reader.GetInt64(5));
-                    if (!reader.IsDBNull(6)) _lastSeen = GetRelativeTime(reader.GetInt64(6));
-                    
-                    // 2. الإحصائيات من ucounters
+                // 1. معلومات المستخدم الأساسية
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT id, actualProfileName, disabled, uptimeUsed, downloadUsed, regDate, lastSeenAt FROM [user] WHERE CAST(userName AS TEXT) = @u LIMIT 1";
+                    cmd.Parameters.AddWithValue("@u", _userName); 
+                    using var reader = cmd.ExecuteReader();
+                    if (reader.Read())
+                    {
+                        userId = reader.GetInt64(0);
+                        if (!reader.IsDBNull(1) && !string.IsNullOrWhiteSpace(reader.GetString(1))) 
+                            _profile = reader.GetString(1);
+                        
+                        int disabled = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
+                        long upUsed = reader.IsDBNull(3) ? 0 : reader.GetInt64(3);
+                        long dlUsed = reader.IsDBNull(4) ? 0 : reader.GetInt64(4);
+                        
+                        if (disabled == 1) _status = "مُعطَّل ❌";
+                        else if (upUsed > 0 || dlUsed > 0) _status = "مُستخدم 🟢";
+                        else _status = "غير مستخدم ⏳";
+
+                        if (!reader.IsDBNull(5)) _regDate = FormatTimestamp(reader.GetInt64(5));
+                        if (!reader.IsDBNull(6)) _lastSeen = FormatTimestamp(reader.GetInt64(6));
+                    }
+                }
+
+                // 2. الإحصائيات من ucounters
+                if (userId.HasValue)
+                {
                     using var statCmd = conn.CreateCommand();
                     statCmd.CommandText = "SELECT download, upload, uptime FROM [ucounters] WHERE userId = @uid";
-                    statCmd.Parameters.AddWithValue("@uid", userId);
+                    statCmd.Parameters.AddWithValue("@uid", userId.Value);
                     using var statReader = statCmd.ExecuteReader();
-                    long totalDl = 0, totalUl = 0, totalUp = 0;
                     while (statReader.Read())
                     {
                         if (!statReader.IsDBNull(0)) totalDl += statReader.GetInt64(0);
@@ -109,13 +137,14 @@ public partial class UserReportWindow : Window
                     if (totalUl > 0) _upload = FormatBytes(totalUl);
                     if (totalUp > 0) _uptime = FormatUptime(totalUp);
 
-                    // 3. الجلسات (العناوين والماكات والتفاصيل الحرفية)
+                    // 3. الجلسات (العناوين والماكات والتفاصيل)
                     using var sessCmd = conn.CreateCommand();
                     sessCmd.CommandText = "SELECT id, fromTime, tillTime, upTime, bytesDownload, bytesUpload, CAST(nasPortId AS TEXT), ipUser, callingStationId FROM [session] WHERE userId = @uid ORDER BY fromTime DESC";
-                    sessCmd.Parameters.AddWithValue("@uid", userId);
+                    sessCmd.Parameters.AddWithValue("@uid", userId.Value);
                     using var sessReader = sessCmd.ExecuteReader();
                     
                     int sCount = 0;
+                    long minFromTs = long.MaxValue;
                     var ipSet = new HashSet<string>();
                     var macSet = new HashSet<string>();
                     _sessionsList.Clear();
@@ -129,6 +158,7 @@ public partial class UserReportWindow : Window
                         if (!sessReader.IsDBNull(1))
                         {
                             var fromTs = sessReader.GetInt64(1);
+                            if (fromTs > 0 && fromTs < minFromTs) minFromTs = fromTs;
                             item.StartTimeFormatted = DateTimeOffset.FromUnixTimeSeconds(fromTs).LocalDateTime.ToString("yyyy/MM/dd HH:mm");
                         }
                         else
@@ -161,7 +191,7 @@ public partial class UserReportWindow : Window
                             {
                                 item.IpAddress = sessReader.GetString(7);
                             }
-                            ipSet.Add(item.IpAddress);
+                            if (!string.IsNullOrEmpty(item.IpAddress)) ipSet.Add(item.IpAddress);
                         }
                         else
                         {
@@ -187,7 +217,7 @@ public partial class UserReportWindow : Window
                             {
                                 item.MacAddress = sessReader.GetString(8);
                             }
-                            macSet.Add(item.MacAddress);
+                            if (!string.IsNullOrEmpty(item.MacAddress)) macSet.Add(item.MacAddress);
                         }
                         else
                         {
@@ -223,8 +253,17 @@ public partial class UserReportWindow : Window
                             item.UploadFormatted = "0 B";
                         }
                         
+                        // احتساب أول جلسة للجلسة الأحدث
+                        if (sCount == 1)
+                        {
+                            _lastIp = item.IpAddress != "—" ? item.IpAddress : _lastIp;
+                            _lastMac = item.MacAddress != "—" ? item.MacAddress : _lastMac;
+                            _lastVlan = item.Vlan != "—" ? item.Vlan : _lastVlan;
+                        }
+
                         _sessionsList.Add(item);
                     }
+
                     _sessionsCount = $"{sCount} جلسة";
                     _uniqueMacs.Clear();
                     if (ipSet.Count > 0) _ips = string.Join("\n", ipSet);
@@ -233,28 +272,272 @@ public partial class UserReportWindow : Window
                         _uniqueMacs.AddRange(macSet);
                         _macs = string.Join("\n", macSet);
                     }
+
+                    if (minFromTs < long.MaxValue)
+                    {
+                        _firstUse = DateTimeOffset.FromUnixTimeSeconds(minFromTs).LocalDateTime.ToString("yyyy/MM/dd HH:mm");
+                    }
+                }
+
+                // 4. استعلام الصلاحية والحدود (validity & limitations) من الباقة
+                if (userId.HasValue || (!string.IsNullOrEmpty(_profile) && _profile != "—"))
+                {
+                    try
+                    {
+                        using var profCmd = conn.CreateCommand();
+                        profCmd.CommandText = @"
+                            SELECT 
+                                pr.validity,
+                                MAX(COALESCE(lim.downloadLimit, 0)) AS dlLimit,
+                                MAX(COALESCE(lim.uploadLimit, 0)) AS ulLimit,
+                                MAX(COALESCE(lim.transferLimit, 0)) AS trLimit
+                            FROM [profile] pr
+                            LEFT JOIN [pparts] pp ON pp.profileId = pr.id
+                            LEFT JOIN [limitation] lim ON lim.id = pp.limitId
+                            WHERE pr.name = @p OR pr.nameForUser = @p OR (@uid IS NOT NULL AND pr.id IN (SELECT profileId FROM userprofile WHERE userId = @uid))
+                            GROUP BY pr.id
+                            LIMIT 1";
+                        profCmd.Parameters.AddWithValue("@p", _profile);
+                        profCmd.Parameters.AddWithValue("@uid", (object?)userId ?? DBNull.Value);
+
+                        using var profReader = profCmd.ExecuteReader();
+                        if (profReader.Read())
+                        {
+                            if (!profReader.IsDBNull(0)) validityStr = profReader.GetValue(0)?.ToString() ?? "";
+                            long dlLim = profReader.IsDBNull(1) ? 0 : profReader.GetInt64(1);
+                            long ulLim = profReader.IsDBNull(2) ? 0 : profReader.GetInt64(2);
+                            long trLim = profReader.IsDBNull(3) ? 0 : profReader.GetInt64(3);
+
+                            if (trLim > 0) limitBytes = trLim;
+                            else if (dlLim > 0) limitBytes = dlLim;
+                            else if (ulLim > 0) limitBytes = ulLim;
+                        }
+                    }
+                    catch { }
+
+                    // استعلام tillTime المباشر من userprofile إن وجد
+                    if (userId.HasValue)
+                    {
+                        try
+                        {
+                            using var upCmd = conn.CreateCommand();
+                            upCmd.CommandText = "SELECT tillTime FROM userprofile WHERE userId = @uid AND tillTime > 0 ORDER BY id DESC LIMIT 1";
+                            upCmd.Parameters.AddWithValue("@uid", userId.Value);
+                            var tillObj = upCmd.ExecuteScalar();
+                            if (tillObj != null && tillObj != DBNull.Value)
+                            {
+                                tillTimeTs = Convert.ToInt64(tillObj);
+                            }
+                        }
+                        catch { }
+                    }
                 }
             }
-
-            // تحديث الواجهة
-            TxtProfile.Text = _profile;
-            TxtStatus.Text = _status;
-            TxtRegDate.Text = _regDate;
-            TxtLastSeen.Text = _lastSeen;
-            TxtDownload.Text = _download;
-            TxtUpload.Text = _upload;
-            TxtUptime.Text = _uptime;
-            TxtSessionsCount.Text = _sessionsCount;
-            TxtIPs.Text = _ips;
-            TxtMACs.Text = _macs;
-
-            SessionsDataGrid.ItemsSource = null;
-            SessionsDataGrid.ItemsSource = _sessionsList;
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error querying report db: {ex.Message}");
+            }
         }
-        catch (Exception ex)
+
+        // 5. حساب تاريخ الانتهاء وساعات الصلاحية المتبقية
+        double hours = ParseTimeSpanToHours(validityStr);
+
+        if (tillTimeTs.HasValue && tillTimeTs.Value > 0)
         {
-            MessageBox.Show($"خطأ في قراءة البيانات: {ex.Message}", "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
+            var expiry = DateTimeOffset.FromUnixTimeSeconds(tillTimeTs.Value).LocalDateTime;
+            _expiryDate = expiry.ToString("yyyy/MM/dd HH:mm");
+            double remHours = (expiry - DateTime.Now).TotalHours;
+            if (remHours > 0)
+            {
+                int wholeH = (int)remHours;
+                int d = wholeH / 24;
+                int h = wholeH % 24;
+                _validityHours = d > 0 ? $"{wholeH} ساعة متبقية ({d} يوم و {h} ساعة)" : $"{wholeH} ساعة متبقية";
+            }
+            else
+            {
+                _validityHours = $"منتهي (تاريخ الانتهاء: {expiry:yyyy/MM/dd})";
+            }
         }
+        else if (hours > 0)
+        {
+            DateTime? firstUseDate = null;
+            if (DateTime.TryParse(_firstUse, out var parsedFirst))
+            {
+                firstUseDate = parsedFirst;
+            }
+            else if (_voucher != null && _voucher.UsedAt.HasValue)
+            {
+                firstUseDate = _voucher.UsedAt.Value;
+            }
+
+            if (firstUseDate.HasValue)
+            {
+                var expiry = firstUseDate.Value.AddHours(hours);
+                _expiryDate = expiry.ToString("yyyy/MM/dd HH:mm");
+                double remHours = (expiry - DateTime.Now).TotalHours;
+                if (remHours > 0)
+                {
+                    int wholeH = (int)remHours;
+                    int d = wholeH / 24;
+                    int h = wholeH % 24;
+                    _validityHours = d > 0 ? $"{wholeH} ساعة متبقية ({d} يوم و {h} ساعة)" : $"{wholeH} ساعة متبقية";
+                }
+                else
+                {
+                    _validityHours = $"منتهي (إجمالي الصلاحية: {(int)hours} ساعة)";
+                }
+            }
+            else
+            {
+                _expiryDate = "لم يُفعل بعد (تحسب عند أول استخدام)";
+                _validityHours = $"{(int)hours} ساعة (تبدأ من أول اتصال)";
+            }
+        }
+
+        // 6. حساب الرصيد المتبقي
+        if (limitBytes == 0 && _voucher != null && _voucher.QuotaLimitBytes.HasValue && _voucher.QuotaLimitBytes.Value > 0)
+        {
+            limitBytes = _voucher.QuotaLimitBytes.Value;
+        }
+
+        if (limitBytes > 0)
+        {
+            long used = totalDl + totalUl;
+            if (used == 0 && _voucher != null && _voucher.QuotaUsedBytes.HasValue) 
+                used = _voucher.QuotaUsedBytes.Value;
+
+            long rem = limitBytes - used;
+            if (rem < 0) rem = 0;
+            _remainingQuota = $"{FormatBytes(rem)} (من أصل {FormatBytes(limitBytes)})";
+        }
+        else
+        {
+            _remainingQuota = "غير محدود (مفتوح)";
+        }
+
+        // فحص العناوين من جدول الـ Leases إذا لم توجد في الجلسات
+        if ((_lastMac == "—" || string.IsNullOrEmpty(_lastMac)) && _uniqueMacs.Count > 0)
+        {
+            _lastMac = _uniqueMacs.First();
+        }
+        if ((_lastIp == "—" || string.IsNullOrEmpty(_lastIp)) && _leases.Count > 0)
+        {
+            if (!string.IsNullOrEmpty(_lastMac) && _leases.TryGetValue(_lastMac, out var leasedIp))
+            {
+                _lastIp = leasedIp;
+            }
+            else
+            {
+                _lastIp = _leases.Values.FirstOrDefault() ?? "—";
+            }
+        }
+
+        // تحديث عناصر الواجهة
+        TxtProfile.Text = _profile;
+        TxtStatus.Text = _status;
+        TxtRegDate.Text = _regDate;
+        TxtFirstUse.Text = _firstUse;
+        TxtExpiryDate.Text = _expiryDate;
+        TxtValidityHours.Text = _validityHours;
+        TxtLastSeen.Text = _lastSeen;
+        TxtDownload.Text = _download;
+        TxtUpload.Text = _upload;
+        TxtRemainingQuota.Text = _remainingQuota;
+        TxtUptime.Text = _uptime;
+        TxtSessionsCount.Text = _sessionsCount;
+        TxtLastIp.Text = _lastIp;
+        TxtLastMac.Text = _lastMac;
+        TxtLastVlan.Text = _lastVlan;
+        TxtIPs.Text = _ips;
+        TxtMACs.Text = _macs;
+
+        SessionsDataGrid.ItemsSource = null;
+        SessionsDataGrid.ItemsSource = _sessionsList;
+    }
+
+    private double ParseTimeSpanToHours(string? val)
+    {
+        if (string.IsNullOrWhiteSpace(val)) return 0;
+        val = val.Trim();
+
+        // 1. أرقام بالثواني المباشرة (مثل 86400 أو 2592000)
+        if (long.TryParse(val, out long totalSeconds) && totalSeconds > 0)
+        {
+            return totalSeconds / 3600.0;
+        }
+
+        // 2. تنسيق TimeSpan القياسي (مثل 01:00:00 أو 1.02:00:00)
+        if (TimeSpan.TryParse(val, out TimeSpan ts))
+        {
+            return ts.TotalHours;
+        }
+
+        // 3. تنسيقات الميكروتك المرنة (مثل 3d, 3d00:00:00, 1w2d, 1d2h, 12h, 4w)
+        try
+        {
+            double totalH = 0;
+            string s = val.ToLower().Replace(" ", "");
+
+            // استخراج الأسابيع w
+            int wIndex = s.IndexOf('w');
+            if (wIndex >= 0)
+            {
+                string wPart = s.Substring(0, wIndex);
+                if (double.TryParse(wPart, out double w)) totalH += w * 168.0;
+                s = s.Substring(wIndex + 1);
+            }
+
+            // استخراج الأيام d
+            int dIndex = s.IndexOf('d');
+            if (dIndex >= 0)
+            {
+                string dPart = s.Substring(0, dIndex);
+                if (double.TryParse(dPart, out double d)) totalH += d * 24.0;
+                s = s.Substring(dIndex + 1);
+            }
+
+            // استخراج الساعات h
+            int hIndex = s.IndexOf('h');
+            if (hIndex >= 0)
+            {
+                string hPart = s.Substring(0, hIndex);
+                if (double.TryParse(hPart, out double h)) totalH += h;
+                s = s.Substring(hIndex + 1);
+            }
+
+            // استخراج الدقائق m
+            int mIndex = s.IndexOf('m');
+            if (mIndex >= 0)
+            {
+                string mPart = s.Substring(0, mIndex);
+                if (double.TryParse(mPart, out double m)) totalH += m / 60.0;
+                s = s.Substring(mIndex + 1);
+            }
+
+            // أي وقت متبقي بتنسيق HH:mm:ss بعد الأيام (مثل 00:00:00 في 3d00:00:00)
+            if (!string.IsNullOrEmpty(s) && TimeSpan.TryParse(s, out TimeSpan remTs))
+            {
+                totalH += remTs.TotalHours;
+            }
+
+            if (totalH > 0) return totalH;
+        }
+        catch { }
+
+        return 0;
+    }
+
+    private string FormatTimestamp(long ts)
+    {
+        if (ts < 1000000000) return "—";
+        try
+        {
+            var date = DateTimeOffset.FromUnixTimeSeconds(ts).LocalDateTime;
+            var rel = GetRelativeTime(ts);
+            return $"{date:yyyy/MM/dd HH:mm} ({rel})";
+        }
+        catch { return "—"; }
     }
 
     private string GetRelativeTime(long ts)
@@ -312,7 +595,7 @@ public partial class UserReportWindow : Window
         {
             try
             {
-                byte[] logoBytes = null;
+                byte[]? logoBytes = null;
                 try
                 {
                     var uri = new Uri("pack://application:,,,/Lux.Management.Console;component/Resources/img/logo2.png");
@@ -336,7 +619,7 @@ public partial class UserReportWindow : Window
                         page.DefaultTextStyle(x => x.FontSize(12).FontFamily("Arial"));
                         page.ContentFromRightToLeft();
 
-                        // الهيدر (ترويسة التقرير)
+                        // Header
                         page.Header().BorderBottom(2).BorderColor(Colors.Blue.Lighten2).PaddingBottom(10).Row(row =>
                         {
                             row.RelativeItem().Row(r =>
@@ -364,34 +647,32 @@ public partial class UserReportWindow : Window
                         {
                             col.Spacing(20);
 
-                            // عنوان التقرير
-                            col.Item().PaddingBottom(10).AlignCenter().Text($"تقرير المشترك المٌفصّل: {_userName}")
+                            col.Item().PaddingBottom(10).AlignCenter().Text($"تقرير المشترك التفصيلي: {_userName}")
                                 .FontSize(22).Bold().FontColor(Colors.Blue.Darken3);
 
-                            // القسم الأول: معلومات عامة (يمين) + موديل الجهاز المتوقع (يسار)
+                            // Section 1: Card details
                             col.Item().Row(mainRow =>
                             {
-                                // العمود الأيمن (معلومات الكرت الأساسية)
                                 mainRow.RelativeItem(3).Column(rightCol =>
                                 {
                                     rightCol.Item().Background(Colors.Grey.Lighten4).Padding(15).Column(inner =>
                                     {
-                                        inner.Item().PaddingBottom(10).Text("معلومات البطاقة الأساسية").FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
+                                        inner.Item().PaddingBottom(10).Text("معلومات الكرت والباقة").FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
                                         inner.Item().Table(table =>
                                         {
                                             table.ColumnsDefinition(c => { c.RelativeColumn(); c.RelativeColumn(); });
-                                            table.Cell().PaddingBottom(5).Text($"الباقة المشتركة: {_profile}").FontSize(13).FontColor(Colors.Grey.Darken3);
-                                            table.Cell().PaddingBottom(5).Text($"حالة الكرت: {_status}").FontSize(13).FontColor(Colors.Grey.Darken3);
-                                            table.Cell().Text($"تاريخ التسجيل: {_regDate}").FontSize(13).FontColor(Colors.Grey.Darken3);
-                                            table.Cell().Text($"آخر ظهور: {_lastSeen}").FontSize(13).FontColor(Colors.Grey.Darken3);
+                                            table.Cell().PaddingBottom(5).Text($"الباقة: {_profile}").FontSize(12).FontColor(Colors.Grey.Darken3);
+                                            table.Cell().PaddingBottom(5).Text($"حالة الكرت: {_status}").FontSize(12).FontColor(Colors.Grey.Darken3);
+                                            table.Cell().PaddingBottom(5).Text($"تاريخ أول استخدام: {_firstUse}").FontSize(12).FontColor(Colors.Grey.Darken3);
+                                            table.Cell().PaddingBottom(5).Text($"تاريخ الانتهاء: {_expiryDate}").FontSize(12).FontColor(Colors.Grey.Darken3);
+                                            table.Cell().PaddingBottom(5).Text($"الصلاحية: {_validityHours}").FontSize(12).FontColor(Colors.Grey.Darken3);
+                                            table.Cell().PaddingBottom(5).Text($"آخر اتصال: {_lastSeen}").FontSize(12).FontColor(Colors.Grey.Darken3);
                                         });
                                     });
                                 });
 
-                                // مسافة فاصلة بين العمودين
                                 mainRow.ConstantItem(15);
 
-                                // العمود الأيسر (موديل الجهاز المتوقع)
                                 mainRow.RelativeItem(2).Column(leftCol =>
                                 {
                                     leftCol.Item().Background(Colors.Grey.Lighten4).Padding(15).Column(inner =>
@@ -403,159 +684,133 @@ public partial class UserReportWindow : Window
                                             foreach (var mac in _uniqueMacs)
                                             {
                                                 var model = GetDeviceModelFromMac(mac);
-                                                inner.Item().PaddingBottom(12).Column(deviceCol =>
+                                                inner.Item().PaddingBottom(8).Column(deviceCol =>
                                                 {
                                                     deviceCol.Item().Text(mac).FontSize(10).FontColor(Colors.Grey.Darken2);
-                                                    deviceCol.Item().Text(model != "—" ? model : "غير محدد").FontSize(13).Bold().FontColor(Colors.Blue.Darken3);
+                                                    deviceCol.Item().Text(model != "—" ? model : "غير محدد").FontSize(12).Bold().FontColor(Colors.Blue.Darken3);
                                                 });
                                             }
                                         }
                                         else
                                         {
-                                            inner.Item().Text("لا توجد عناوين MAC مسجلة").FontSize(12).FontColor(Colors.Grey.Medium);
+                                            inner.Item().Text("لا توجد عناوين MAC").FontSize(12).FontColor(Colors.Grey.Medium);
                                         }
                                     });
                                 });
                             });
 
-                            // القسم الثاني: إحصائيات الاستهلاك والبيانات (عرض كامل)
+                            // Section 2: Usage statistics
                             col.Item().Background(Colors.Blue.Lighten5).Padding(15).Column(inner =>
                             {
-                                inner.Item().PaddingBottom(10).Text("إحصائيات الاستهلاك والبيانات").FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
+                                inner.Item().PaddingBottom(10).Text("إحصائيات الاستهلاك والرصيد").FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
                                 inner.Item().Table(table =>
                                 {
                                     table.ColumnsDefinition(c => { c.RelativeColumn(); c.RelativeColumn(); });
                                     table.Cell().PaddingBottom(8).Text(text => {
-                                        text.Span("إجمالي التنزيل: ").FontSize(13).FontColor(Colors.Grey.Darken3);
-                                        text.Span(_download).FontSize(13).FontColor(Colors.Green.Darken2).Bold();
+                                        text.Span("التنزيل: ").FontSize(12).FontColor(Colors.Grey.Darken3);
+                                        text.Span(_download).FontSize(12).FontColor(Colors.Green.Darken2).Bold();
                                     });
                                     table.Cell().PaddingBottom(8).Text(text => {
-                                        text.Span("إجمالي الرفع: ").FontSize(13).FontColor(Colors.Grey.Darken3);
-                                        text.Span(_upload).FontSize(13).FontColor(Colors.Purple.Darken2).Bold();
+                                        text.Span("الرفع: ").FontSize(12).FontColor(Colors.Grey.Darken3);
+                                        text.Span(_upload).FontSize(12).FontColor(Colors.Purple.Darken2).Bold();
                                     });
-                                    table.Cell().Text(text => {
-                                        text.Span("إجمالي وقت الاتصال: ").FontSize(13).FontColor(Colors.Grey.Darken3);
-                                        text.Span(_uptime).FontSize(13).FontColor(Colors.Orange.Darken3).Bold();
+                                    table.Cell().PaddingBottom(8).Text(text => {
+                                        text.Span("الرصيد المتبقي: ").FontSize(12).FontColor(Colors.Grey.Darken3);
+                                        text.Span(_remainingQuota).FontSize(12).FontColor(Colors.Blue.Darken3).Bold();
                                     });
-                                    table.Cell().Text(text => {
-                                        text.Span("عدد الجلسات (سجل الاتصال): ").FontSize(13).FontColor(Colors.Grey.Darken3);
-                                        text.Span(_sessionsCount).FontSize(13).FontColor(Colors.Blue.Darken2).Bold();
+                                    table.Cell().PaddingBottom(8).Text(text => {
+                                        text.Span("إجمالي وقت الاتصال: ").FontSize(12).FontColor(Colors.Grey.Darken3);
+                                        text.Span(_uptime).FontSize(12).FontColor(Colors.Orange.Darken3).Bold();
                                     });
                                 });
                             });
 
-                            // القسم الثالث: العناوين والأمان
+                            // Section 3: Connection addresses
                             col.Item().Background(Colors.Grey.Lighten4).Padding(15).Column(inner =>
                             {
-                                inner.Item().PaddingBottom(10).Text("السجل الأمني والأجهزة المرتبطة").FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
+                                inner.Item().PaddingBottom(10).Text("آخر بيانات اتصال والمنافذ").FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
+                                inner.Item().Text($"آخر IP: {_lastIp}   |   آخر MAC: {_lastMac}   |   آخر فيلان/منفذ: {_lastVlan}").FontSize(12).FontColor(Colors.Grey.Darken3);
                                 
-                                inner.Item().PaddingBottom(4).Text("عناوين IP التي حصل عليها المشترك أثناء الجلسات:").Bold().FontSize(12).FontColor(Colors.Grey.Darken2);
-                                inner.Item().Text(_ips.Replace("\n", "  •  ")).FontSize(11).FontColor(Colors.Grey.Darken3).LineHeight(1.5f);
+                                inner.Item().PaddingTop(12).PaddingBottom(4).Text("عناوين IP المرتبطة:").Bold().FontSize(12).FontColor(Colors.Grey.Darken2);
+                                inner.Item().Text(_ips.Replace("\n", "  •  ")).FontSize(11).FontColor(Colors.Grey.Darken3);
                                 
-                                inner.Item().PaddingTop(15).PaddingBottom(4).Text("عناوين MAC (الأجهزة التي اتصلت بالكرت):").Bold().FontSize(12).FontColor(Colors.Grey.Darken2);
-                                inner.Item().Text(_macs.Replace("\n", "  •  ")).FontSize(11).FontColor(Colors.Grey.Darken3).LineHeight(1.5f);
+                                inner.Item().PaddingTop(10).PaddingBottom(4).Text("عناوين MAC المرتبطة:").Bold().FontSize(12).FontColor(Colors.Grey.Darken2);
+                                inner.Item().Text(_macs.Replace("\n", "  •  ")).FontSize(11).FontColor(Colors.Grey.Darken3);
                             });
 
-                            // القسم الرابع: سجل الجلسات التفصيلي
+                            // Section 4: Session history table
                             if (_sessionsList != null && _sessionsList.Count > 0)
                             {
                                 col.Item().Background(Colors.White).Border(1).BorderColor(Colors.Grey.Lighten2).Padding(10).Column(inner =>
                                 {
-                                    inner.Item().PaddingBottom(8).Text("سجل الجلسات التفصيلي (آخر 100 جلسة)").FontSize(14).Bold().FontColor(Colors.Blue.Darken2);
+                                    inner.Item().PaddingBottom(8).Text("سجل الجلسات التفصيلي").FontSize(14).Bold().FontColor(Colors.Blue.Darken2);
                                     inner.Item().Table(table =>
                                     {
                                         table.ColumnsDefinition(c =>
                                         {
                                             c.RelativeColumn(3); // Start Time
                                             c.RelativeColumn(2); // VLAN
-                                            c.RelativeColumn(2.5f); // IP
-                                            c.RelativeColumn(3); // MAC
-                                            c.RelativeColumn(2); // Uptime
+                                            c.RelativeColumn(3); // IP Address
+                                            c.RelativeColumn(3); // MAC Address
+                                            c.RelativeColumn(2); // Duration
                                             c.RelativeColumn(2); // Download
                                             c.RelativeColumn(2); // Upload
                                         });
 
-                                        // Header
                                         table.Header(h =>
                                         {
-                                            h.Cell().Background(Colors.Blue.Darken1).Padding(5).Text("وقت البدء").FontSize(10).Bold().FontColor(Colors.White);
-                                            h.Cell().Background(Colors.Blue.Darken1).Padding(5).Text("الفيلان/المنفذ").FontSize(10).Bold().FontColor(Colors.White);
-                                            h.Cell().Background(Colors.Blue.Darken1).Padding(5).Text("IP").FontSize(10).Bold().FontColor(Colors.White);
-                                            h.Cell().Background(Colors.Blue.Darken1).Padding(5).Text("MAC").FontSize(10).Bold().FontColor(Colors.White);
-                                            h.Cell().Background(Colors.Blue.Darken1).Padding(5).Text("المدة").FontSize(10).Bold().FontColor(Colors.White);
-                                            h.Cell().Background(Colors.Blue.Darken1).Padding(5).Text("تنزيل").FontSize(10).Bold().FontColor(Colors.White);
-                                            h.Cell().Background(Colors.Blue.Darken1).Padding(5).Text("رفع").FontSize(10).Bold().FontColor(Colors.White);
+                                            h.Cell().Background(Colors.Grey.Lighten3).Padding(5).Text("وقت البدء").Bold().FontSize(10);
+                                            h.Cell().Background(Colors.Grey.Lighten3).Padding(5).Text("الفيلان").Bold().FontSize(10);
+                                            h.Cell().Background(Colors.Grey.Lighten3).Padding(5).Text("عنوان IP").Bold().FontSize(10);
+                                            h.Cell().Background(Colors.Grey.Lighten3).Padding(5).Text("عنوان MAC").Bold().FontSize(10);
+                                            h.Cell().Background(Colors.Grey.Lighten3).Padding(5).Text("المدة").Bold().FontSize(10);
+                                            h.Cell().Background(Colors.Grey.Lighten3).Padding(5).Text("التنزيل").Bold().FontSize(10);
+                                            h.Cell().Background(Colors.Grey.Lighten3).Padding(5).Text("الرفع").Bold().FontSize(10);
                                         });
 
-                                        // Rows
                                         foreach (var s in _sessionsList.Take(100))
                                         {
-                                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(s.StartTimeFormatted).FontSize(9);
-                                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(s.Vlan).FontSize(9);
-                                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(s.IpAddress).FontSize(9);
-                                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(s.MacAddress).FontSize(9);
-                                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(s.DurationFormatted).FontSize(9);
-                                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(s.DownloadFormatted).FontSize(9);
-                                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(s.UploadFormatted).FontSize(9);
+                                            table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(s.StartTimeFormatted).FontSize(9);
+                                            table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(s.Vlan).FontSize(9);
+                                            table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(s.IpAddress).FontSize(9);
+                                            table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(s.MacAddress).FontSize(9);
+                                            table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(s.DurationFormatted).FontSize(9);
+                                            table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(s.DownloadFormatted).FontSize(9);
+                                            table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(s.UploadFormatted).FontSize(9);
                                         }
                                     });
                                 });
                             }
-
-                            // ملاحظة ذيلية
-                            col.Item().PaddingTop(20).AlignCenter().Text("هذا التقرير مُصدّر آلياً من نظام الفا مانجر Alpha Manager ولا يحتاج إلى ختم أو توقيع.").FontSize(11).FontColor(Colors.Grey.Medium);
                         });
 
                         page.Footer().AlignCenter().Text(x =>
                         {
-                            x.Span("الصفحة ").FontColor(Colors.Grey.Medium);
-                            x.CurrentPageNumber().FontColor(Colors.Grey.Medium);
-                            x.Span(" من ").FontColor(Colors.Grey.Medium);
-                            x.TotalPages().FontColor(Colors.Grey.Medium);
+                            x.Span("صفحة ").FontSize(10).FontColor(Colors.Grey.Medium);
+                            x.CurrentPageNumber().FontSize(10).FontColor(Colors.Grey.Medium);
+                            x.Span(" من ").FontSize(10).FontColor(Colors.Grey.Medium);
+                            x.TotalPages().FontSize(10).FontColor(Colors.Grey.Medium);
                         });
                     });
-                })
-                .GeneratePdf(dialog.FileName);
+                }).GeneratePdf(dialog.FileName);
 
-                MessageBox.Show("تم حفظ التقرير بنجاح!", "نجاح", MessageBoxButton.OK, MessageBoxImage.Information);
-
-                try
-                {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = dialog.FileName,
-                        UseShellExecute = true
-                    });
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"تعذر فتح ملف PDF تلقائياً: {ex.Message}", "تنبيه", MessageBoxButton.OK, MessageBoxImage.Warning);
-                }
+                MessageBox.Show("تم حفظ التقرير بنجاح كملف PDF!", "نجاح", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"حدث خطأ أثناء إنشاء PDF: {ex.Message}", "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"حدث خطأ أثناء حفظ الملف: {ex.Message}", "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }
 
     private string GetDeviceModelFromMac(string mac)
     {
-        if (string.IsNullOrEmpty(mac) || mac == "—" || mac.Length < 8) return "—";
-        
-        // 1. البحث في الليسس الحية أولاً
-        if (_leases.TryGetValue(mac, out var hostName) && !string.IsNullOrWhiteSpace(hostName))
-        {
-            return hostName;
-        }
+        if (string.IsNullOrWhiteSpace(mac)) return "—";
 
-        // 2. إذا لم يوجد، نستخدم البادئات (OUI)
         var cleanMac = mac.Replace(":", "").Replace("-", "").ToUpper();
         if (cleanMac.Length < 6) return "—";
         
         var prefix = cleanMac.Substring(0, 6);
         
-        // بادئات آبل Apple
         if (new[] {
             "001CB3", "002500", "00254B", "FCFC48", "000393", "000502", "000A27", "000A95", "0010FA", "001451", "0016CB", "0017F2", "0019E3", "001B63", "001D4F", "001E52", "001EC2", "001F5B", "001FF3", "0021E9",
             "002241", "002312", "002332", "00236C", "002436", "002608", "00264A", "0026B0", "0026BB", "18AF61", "24A074", "28E347", "34159E", "38CADA", "3C0754", "3CD0F8", "403004", "40D32D", "442A60", "444C0C",
@@ -576,7 +831,6 @@ public partial class UserReportWindow : Window
             "FC7516", "FCD815", "FCE998", "FCFC48"
         }.Contains(prefix)) return "Apple 🍏";
 
-        // بادئات سامسونج Samsung
         if (new[] {
             "0000F0", "000278", "0007AB", "0009A7", "001247", "0012FB", "0015B9", "001632", "00166C", "0017C9", "0017D5", "0018AF", "001A8A", "001CC6", "001D25", "001E7D", "001FCC", "002119", "0021D2", "0022F5",
             "00233D", "0023D6", "002490", "002538", "002637", "007A93", "04180F", "04FEA1", "080027", "083E8E", "08ECA9", "08FC88", "0C1420", "0C54A5", "0C715D", "0C8910", "0C9152", "0CDFA4", "103047", "1077B1",
@@ -607,7 +861,6 @@ public partial class UserReportWindow : Window
             "FCE998"
         }.Contains(prefix)) return "Samsung 📱";
 
-        // بادئات شاومي Xiaomi
         if (new[] {
             "009EC8", "185936", "286C07", "3480B3", "3CBD3E", "50642B", "584498", "640980", "745A25", "7C1DD9", "8035C1", "8CBEBE", "9C2EA1", "ACC1EE", "B03829", "C40BCB", "E446DA", "F023B9", "FC1990", "00EC0A",
             "1C5216", "28E31F", "38A28C", "3CA82A", "4C11AE", "50EC50", "58A2B7", "64B5C6", "7811DC", "7CA7B0", "80AD1A", "90A4DE", "9CF03C", "B03CA7", "C80E14", "E49C20", "F0B4D2", "FC63F6", "0C29BB", "2034FB",

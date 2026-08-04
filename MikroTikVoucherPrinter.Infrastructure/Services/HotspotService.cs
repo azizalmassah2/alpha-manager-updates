@@ -183,6 +183,19 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                 await File.WriteAllTextAsync(cssConfigPath, jsContent, Encoding.UTF8);
             }
 
+            // نسخ صور الإعلانات المخصصة إلى مجلد المعاينة
+            var imgDir = Path.Combine(tempDir, "ALFA", "img");
+            Directory.CreateDirectory(imgDir);
+            for (int i = 1; i <= 5; i++)
+            {
+                var customPath = GetAdImagePath(i);
+                if (!string.IsNullOrEmpty(customPath) && File.Exists(customPath))
+                {
+                    var targetFile = Path.Combine(imgDir, $"{i}.jpg");
+                    File.Copy(customPath, targetFile, true);
+                }
+            }
+
             return tempDir;
         }
 
@@ -326,6 +339,17 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
             files["ALFA/config.js"] = jsBytes;
             files["ALFA/css/config.js"] = jsBytes;
 
+            // استبدال صور الإعلانات المخصصة في المعاينة المدمجة
+            for (int i = 1; i <= 5; i++)
+            {
+                var customPath = GetAdImagePath(i);
+                if (!string.IsNullOrEmpty(customPath) && File.Exists(customPath))
+                {
+                    var key = $"ALFA/img/{i}.jpg";
+                    files[key] = await File.ReadAllBytesAsync(customPath);
+                }
+            }
+
             return files;
         }
 
@@ -387,6 +411,215 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
             }
         }
  
+        public async Task<List<string>> GetRouterFoldersFtpAsync(string host, string username, string password)
+        {
+            var candidateFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // 1. Scan root directory "/"
+            await ScanDirectoryForFoldersAsync(host, username, password, "", candidateFolders);
+
+            // 2. Scan "flash" directory if present (e.g. flash/hotspot on ARM/NAND devices)
+            if (candidateFolders.Contains("flash"))
+            {
+                await ScanDirectoryForFoldersAsync(host, username, password, "flash", candidateFolders);
+                candidateFolders.Remove("flash"); // Remove raw 'flash' container
+            }
+
+            // Filter candidate folders: ONLY keep folders where config.js actually exists!
+            var validFolders = new List<string>();
+            foreach (var folder in candidateFolders)
+            {
+                var configPath = $"{folder.Trim('/')}/config.js";
+                var content = await DownloadFileFtpAsync(host, username, password, configPath);
+                if (!string.IsNullOrWhiteSpace(content))
+                {
+                    validFolders.Add(folder);
+                }
+            }
+
+            return validFolders.OrderBy(f => f).ToList();
+        }
+
+        private async Task ScanDirectoryForFoldersAsync(string host, string username, string password, string basePath, HashSet<string> resultFolders)
+        {
+            try
+            {
+                var ftpUrl = string.IsNullOrEmpty(basePath) ? $"ftp://{host}/" : $"ftp://{host}/{basePath.Trim('/')}/";
+                var req = (FtpWebRequest)WebRequest.Create(ftpUrl);
+                req.Method = WebRequestMethods.Ftp.ListDirectoryDetails;
+                req.Credentials = new NetworkCredential(username, password);
+                req.UsePassive = true;
+                req.KeepAlive = false;
+                req.Timeout = 10000;
+
+                using var resp = (FtpWebResponse)await req.GetResponseAsync();
+                using var stream = resp.GetResponseStream();
+                using var reader = new StreamReader(stream, Encoding.UTF8);
+
+                string? line;
+                while ((line = await reader.ReadLineAsync()) != null)
+                {
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    // Parse UNIX style: "drwxr-xr-x 2 root root 4096 Jan 1 00:00 hotspot"
+                    // Parse DOS style:  "01-01-26 12:00PM <DIR> hotspot"
+                    bool isDir = line.StartsWith("d", StringComparison.OrdinalIgnoreCase) ||
+                                 line.Contains("<DIR>", StringComparison.OrdinalIgnoreCase);
+
+                    if (isDir)
+                    {
+                        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        var folderName = parts.LastOrDefault()?.Trim();
+
+                        if (!string.IsNullOrEmpty(folderName) && folderName != "." && folderName != "..")
+                        {
+                            // Filter system dirs (pub, skins, license, user-manager)
+                            if (IsExcludedFolder(folderName))
+                                continue;
+
+                            var fullPath = string.IsNullOrEmpty(basePath) ? folderName : $"{basePath}/{folderName}";
+                            resultFolders.Add(fullPath);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback to simple ListDirectory if ListDirectoryDetails fails
+                try
+                {
+                    var ftpUrl = string.IsNullOrEmpty(basePath) ? $"ftp://{host}/" : $"ftp://{host}/{basePath.Trim('/')}/";
+                    var req = (FtpWebRequest)WebRequest.Create(ftpUrl);
+                    req.Method = WebRequestMethods.Ftp.ListDirectory;
+                    req.Credentials = new NetworkCredential(username, password);
+                    req.UsePassive = true;
+                    req.KeepAlive = false;
+                    req.Timeout = 10000;
+
+                    using var resp = (FtpWebResponse)await req.GetResponseAsync();
+                    using var stream = resp.GetResponseStream();
+                    using var reader = new StreamReader(stream, Encoding.UTF8);
+
+                    string? name;
+                    while ((name = await reader.ReadLineAsync()) != null)
+                    {
+                        var trimmed = name.Trim();
+                        if (!string.IsNullOrEmpty(trimmed) && !trimmed.Contains("."))
+                        {
+                            if (IsExcludedFolder(trimmed))
+                                continue;
+
+                            var fullPath = string.IsNullOrEmpty(basePath) ? trimmed : $"{basePath}/{trimmed}";
+                            resultFolders.Add(fullPath);
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+
+        private static bool IsExcludedFolder(string folderName)
+        {
+            if (string.IsNullOrWhiteSpace(folderName)) return true;
+
+            var name = folderName.Trim();
+            return name.Equals("pub", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("skins", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("license", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("user-manager", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("um", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("web-ssl", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public async Task<Result> UploadConfigOnlyAsync(
+            string host, 
+            string username, 
+            string password, 
+            HotspotConfig config, 
+            string destinationPath, 
+            CancellationToken token)
+        {
+            try
+            {
+                var serializerOptions = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                };
+
+                var configJson = JsonSerializer.Serialize(config, serializerOptions);
+                var jsContent = $"window.siteConfig = {configJson};";
+                var fileBytes = Encoding.UTF8.GetBytes(jsContent);
+
+                var targetPath = $"{destinationPath.Trim('/', '\\')}/config.js";
+                bool ok = await UploadFileFtpAsync(host, username, password, fileBytes, targetPath);
+
+                if (!ok)
+                {
+                    return Result.Failure($"فشل رفع ملف config.js إلى المسار {targetPath}", ErrorType.ExternalService);
+                }
+
+                // رفع صور الإعلانات المخصصة أيضاً عند تحديث الإعدادات
+                for (int i = 1; i <= 5; i++)
+                {
+                    var customPath = GetAdImagePath(i);
+                    if (!string.IsNullOrEmpty(customPath) && File.Exists(customPath))
+                    {
+                        byte[] imgBytes = await File.ReadAllBytesAsync(customPath, token);
+                        var remoteImgPath = $"{destinationPath.Trim('/', '\\')}/img/{i}.jpg";
+                        await UploadFileFtpAsync(host, username, password, imgBytes, remoteImgPath);
+                    }
+                }
+
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                return Result.Failure($"حدث خطأ أثناء تحديث الإعدادات: {ex.Message}", ErrorType.ExternalService, ex);
+            }
+        }
+
+        private string GetAdImagesFolder()
+        {
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AlphaManager", "HotspotImages");
+            Directory.CreateDirectory(folder);
+            return folder;
+        }
+
+        public void SaveAdImage(int index, string sourceFilePath)
+        {
+            if (index < 1 || index > 5) return;
+            if (string.IsNullOrWhiteSpace(sourceFilePath) || !File.Exists(sourceFilePath)) return;
+
+            var folder = GetAdImagesFolder();
+            var destFile = Path.Combine(folder, $"{index}.jpg");
+            try
+            {
+                File.Copy(sourceFilePath, destFile, true);
+            }
+            catch { }
+        }
+
+        public void DeleteAdImage(int index)
+        {
+            if (index < 1 || index > 5) return;
+            var folder = GetAdImagesFolder();
+            var destFile = Path.Combine(folder, $"{index}.jpg");
+            if (File.Exists(destFile))
+            {
+                try { File.Delete(destFile); } catch { }
+            }
+        }
+
+        public string? GetAdImagePath(int index)
+        {
+            if (index < 1 || index > 5) return null;
+            var folder = GetAdImagesFolder();
+            var destFile = Path.Combine(folder, $"{index}.jpg");
+            return File.Exists(destFile) ? destFile : null;
+        }
+
         private class UploadContext
         {
             public int UploadedCount { get; set; }

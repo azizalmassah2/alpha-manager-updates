@@ -160,7 +160,9 @@
                                     <Condition Property="IsMouseOver" Value="True"/>
                                     <Condition Property="IsFocused" Value="False"/>
                                 </MultiTrigger.Conditions>
-                                <Setter TargetName="border" Property="BorderBrush" Value="#CBD5E1"/>
+                                <MultiTrigger.Setters>
+                                    <Setter TargetName="border" Property="BorderBrush" Value="#CBD5E1"/>
+                                </MultiTrigger.Setters>
                             </MultiTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

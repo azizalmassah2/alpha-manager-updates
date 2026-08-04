@@ -83,5 +83,10 @@ public class FeatureFlaggedMikroTikIntegrationService : IMikroTikIntegrationServ
             return await _legacyService.DeleteUsersBulkAsync(users, progress, cancellationToken);
         }
     }
+
+    public void ResetCircuitBreaker()
+    {
+        _legacyService.ResetCircuitBreaker();
+    }
 }
 

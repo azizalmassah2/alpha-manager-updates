@@ -273,6 +273,7 @@ public partial class App : Application
                 // High performance is guaranteed via Phase 2 Lazy Loading (deferring data queries to page activation).
                 services.AddTransient<MikroTikCenterViewModel>();
                 services.AddTransient<VoucherManagementViewModel>();
+                services.AddTransient<Lux.Management.Console.Modules.MikroTik.UserManager.Batches.ViewModels.BatchManagementViewModel>();
                 services.AddTransient<Lux.Management.Console.Modules.MikroTik.UserManager.Sales.SalesViewModel>();
                 services.AddTransient<ProfileManagementViewModel>();
                 services.AddTransient<AgentManagementViewModel>();
@@ -288,12 +289,15 @@ public partial class App : Application
                 services.AddTransient<BackupsViewModel>();
                 services.AddTransient<Lux.Management.Console.Modules.MikroTik.RouterManagement.ViewModels.RouterOperationsViewModel>();
                 services.AddTransient<NocViewModel>();
+                services.AddTransient<Lux.Management.Console.Modules.MikroTik.RouterManagement.ViewModels.VlanReportViewModel>();
+                services.AddTransient<Lux.Management.Console.Modules.MikroTik.RouterManagement.Views.VlanReportWindow>();
                 services.AddTransient<RouterManagementCenterViewModel>();
 
                 services.AddTransient<SettingsViewModel>();
                 services.AddTransient<SyncViewModel>();
                 services.AddTransient<TemplateManagementViewModel>();
                 services.AddTransient<Lux.Management.Console.Modules.Settings.ViewModels.DbExplorerViewModel>();
+                services.AddTransient<Lux.Management.Console.Modules.Maintenance.ViewModels.MaintenanceCenterViewModel>();
                 
                 // Operations Center
                 services.AddTransient<Lux.Management.Console.Modules.Operations.ViewModels.OperationsCenterViewModel>();
@@ -437,6 +441,9 @@ public partial class App : Application
 
                 await MikroTikVoucherPrinter.Infrastructure.Data.LuxCardSqliteSchemaUpgrade.ApplyAsync(dbContext, dbLogger);
                 await MikroTikVoucherPrinter.Infrastructure.Data.BuiltInTemplateSeeder.EnsureSeedAsync(dbContext, dbLogger);
+
+                var batchMigration = scope.ServiceProvider.GetRequiredService<MikroTikVoucherPrinter.Infrastructure.Services.BatchMigrationService>();
+                await batchMigration.MigrateIfNeededAsync();
             });
 
             // ── 4. فحص التحديثات (صامت — لا يوقف التشغيل عند الفشل) ────────────

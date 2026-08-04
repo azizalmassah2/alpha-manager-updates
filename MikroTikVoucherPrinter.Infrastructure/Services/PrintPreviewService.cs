@@ -14,18 +14,30 @@ public class PrintPreviewService : IPrintPreviewService
         if (pdfBytes == null || pdfBytes.Length == 0)
             return;
 
-        string tempDir = Path.GetTempPath();
-        string tempFile = Path.Combine(tempDir, suggestedFileName);
-
-        // Ensure unique filename
-        if (File.Exists(tempFile))
+        string targetPath;
+        if (Path.IsPathRooted(suggestedFileName))
         {
-            tempFile = Path.Combine(tempDir, $"{Path.GetFileNameWithoutExtension(suggestedFileName)}_{Guid.NewGuid().ToString("N").Substring(0, 4)}{Path.GetExtension(suggestedFileName)}");
+            targetPath = suggestedFileName;
+        }
+        else
+        {
+            string tempDir = Path.GetTempPath();
+            targetPath = Path.Combine(tempDir, suggestedFileName);
         }
 
-        await File.WriteAllBytesAsync(tempFile, pdfBytes, cancellationToken);
+        // كتابة أو تحديث الملف فوراً بحجمه الكامل الصريح
+        var dir = Path.GetDirectoryName(targetPath);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
 
-        Process.Start(new ProcessStartInfo(tempFile) { UseShellExecute = true });
+        await File.WriteAllBytesAsync(targetPath, pdfBytes, cancellationToken);
+
+        if (File.Exists(targetPath))
+        {
+            Process.Start(new ProcessStartInfo(targetPath) { UseShellExecute = true });
+        }
     }
 
     public async Task SaveAndOpenPdfAsync(byte[] pdfBytes, string filePath, CancellationToken cancellationToken = default)

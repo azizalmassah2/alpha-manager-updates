@@ -14,7 +14,14 @@ public class SyncMetrics
     public int Retries => _retries;
     public int Skipped => _skipped;
 
+    public System.Collections.Concurrent.ConcurrentBag<System.Guid> SyncedVoucherIds { get; } = new();
+
     public void IncrementSuccess() => Interlocked.Increment(ref _success);
+    public void IncrementSuccess(System.Guid voucherId)
+    {
+        SyncedVoucherIds.Add(voucherId);
+        Interlocked.Increment(ref _success);
+    }
     public void IncrementFailed() => Interlocked.Increment(ref _failed);
     public void IncrementRetries() => Interlocked.Increment(ref _retries);
     public void IncrementSkipped() => Interlocked.Increment(ref _skipped);
@@ -31,6 +38,8 @@ public class SyncMetrics
         Interlocked.Add(ref merged._failed,  _failed  + other._failed);
         Interlocked.Add(ref merged._retries, _retries + other._retries);
         Interlocked.Add(ref merged._skipped, _skipped + other._skipped);
+        foreach (var id in SyncedVoucherIds) merged.SyncedVoucherIds.Add(id);
+        foreach (var id in other.SyncedVoucherIds) merged.SyncedVoucherIds.Add(id);
         return merged;
     }
 

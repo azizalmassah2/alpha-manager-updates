@@ -19,6 +19,7 @@ using Lux.Platform.Abstractions.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using MikroTikVoucherPrinter.Infrastructure.Data;
 using Lux.Management.Console.Core;
+using MikroTikVoucherPrinter.Application.Interfaces;
 
 namespace Lux.Management.Console.Modules.MikroTik.RouterManagement.ViewModels;
 
@@ -116,8 +117,11 @@ public partial class VlanMonitorItem : ObservableObject
         }
     }
 
-    public string TotalDownloadText => LastByteTime == DateTime.MinValue ? "--" : FormatBytes(LastRxBytes);
-    public string TotalUploadText => LastByteTime == DateTime.MinValue ? "--" : FormatBytes(LastTxBytes);
+    public long CumulativeRxBytes { get; set; }
+    public long CumulativeTxBytes { get; set; }
+
+    public string TotalDownloadText => LastByteTime == DateTime.MinValue ? "--" : FormatBytes(CumulativeTxBytes + LastTxBytes);
+    public string TotalUploadText => LastByteTime == DateTime.MinValue ? "--" : FormatBytes(CumulativeRxBytes + LastRxBytes);
 
     public static string FormatBytes(long bytes)
     {
@@ -271,6 +275,7 @@ public partial class NocViewModel : ObservableObject, IDisposable, IActivatable,
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IEventBus _eventBus;
     private readonly IDevicePingService _devicePingService;
+    private readonly IVlanTelemetryService _telemetryService;
 
     [ObservableProperty]
     private double _freeMemoryMb;
@@ -285,6 +290,7 @@ public partial class NocViewModel : ObservableObject, IDisposable, IActivatable,
         IServiceScopeFactory scopeFactory,
         IEventBus eventBus,
         IDevicePingService devicePingService,
+        IVlanTelemetryService telemetryService,
         ILogger<NocViewModel> logger)
     {
         _activeRouterContext = activeRouterContext;
@@ -293,6 +299,7 @@ public partial class NocViewModel : ObservableObject, IDisposable, IActivatable,
         _scopeFactory = scopeFactory;
         _eventBus = eventBus;
         _devicePingService = devicePingService;
+        _telemetryService = telemetryService;
         _logger = logger;
 
         _nocMonitoringInterval = _settingsService.Get("NocMonitoringInterval", 100);
@@ -462,6 +469,27 @@ public partial class NocViewModel : ObservableObject, IDisposable, IActivatable,
                 _logger.LogWarning("⚠️ [NOC] Failed to query bridge interfaces: {Message}", ex.Message);
             }
 
+            try
+            {
+                var currentRouterIdForTotals = _activeRouterContext.CurrentRouter?.Id ?? Guid.Empty;
+                if (currentRouterIdForTotals != Guid.Empty)
+                {
+                    var cumulativeTotals = await _telemetryService.GetVlanCumulativeTotalsAsync(currentRouterIdForTotals, _cts.Token);
+                    foreach (var v in initialVlans)
+                    {
+                        if (cumulativeTotals.TryGetValue(v.Name, out var totals))
+                        {
+                            v.CumulativeRxBytes = totals.TotalRx;
+                            v.CumulativeTxBytes = totals.TotalTx;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "⚠️ [NOC] Failed to fetch cumulative telemetry totals");
+            }
+
             Application.Current.Dispatcher.Invoke(() =>
             {
                 Vlans.Clear();
@@ -605,6 +633,7 @@ public partial class NocViewModel : ObservableObject, IDisposable, IActivatable,
         {
             var res = await _routerService.ExecuteQueryAsync("/interface/print", _cts.Token);
             var now = DateTime.Now;
+            var samples = new List<(string VlanName, long CurrentRx, long CurrentTx)>();
 
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -624,6 +653,7 @@ public partial class NocViewModel : ObservableObject, IDisposable, IActivatable,
                         vlan.IsDisabled = isDisabled;
                         var rxBytes = long.TryParse(row.GetValueOrDefault("rx-byte", "0"), out var rx) ? rx : 0;
                         var txBytes = long.TryParse(row.GetValueOrDefault("tx-byte", "0"), out var tx) ? tx : 0;
+                        samples.Add((vlan.Name, rxBytes, txBytes));
 
                         if (isDisabled)
                         {
@@ -716,7 +746,7 @@ public partial class NocViewModel : ObservableObject, IDisposable, IActivatable,
 
                 if (maxVlan != null && (maxVlan.LastRxBytes + maxVlan.LastTxBytes) > 0)
                 {
-                    long totalUsage = maxVlan.LastRxBytes + maxVlan.LastTxBytes;
+                    long totalUsage = maxVlan.CumulativeRxBytes + maxVlan.LastRxBytes + maxVlan.CumulativeTxBytes + maxVlan.LastTxBytes;
                     HighestUsageVlanName = $"{maxVlan.Name} ({VlanMonitorItem.FormatBytes(totalUsage)})";
                 }
                 else
@@ -724,6 +754,15 @@ public partial class NocViewModel : ObservableObject, IDisposable, IActivatable,
                     HighestUsageVlanName = "—";
                 }
             });
+
+            if (samples.Count > 0)
+            {
+                var routerId = _activeRouterContext.CurrentRouter?.Id ?? Guid.Empty;
+                if (routerId != Guid.Empty)
+                {
+                    _ = _telemetryService.ProcessVlanSamplesAsync(routerId, samples, _cts.Token);
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -1064,6 +1103,26 @@ public partial class NocViewModel : ObservableObject, IDisposable, IActivatable,
                 _logger.LogError(ex, "Failed to save monitor config to database");
                 MessageBox.Show($"فشل حفظ إعدادات المراقبة: {ex.Message}", "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+    }
+
+    [RelayCommand]
+    private void OpenVlanReport()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var reportVm = scope.ServiceProvider.GetRequiredService<VlanReportViewModel>();
+            var win = new VlanReportWindow(reportVm)
+            {
+                Owner = Application.Current.MainWindow
+            };
+            win.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "خطأ أثناء فتح نافذة تقرير الفيلانات");
+            MessageBox.Show($"تعذر فتح تقرير الفيلانات: {ex.Message}", "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

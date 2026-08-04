@@ -55,6 +55,24 @@ public partial class MainViewModel : ViewModelBase
     private bool _isSidebarExpanded = false;
 
     [ObservableProperty]
+    private bool _isMikroTikMenuExpanded = true;
+
+    [ObservableProperty]
+    private bool _isUserManagerMenuExpanded = true;
+
+    [ObservableProperty]
+    private bool _isRouterMgmtMenuExpanded = false;
+
+    [ObservableProperty]
+    private bool _isHotspotMenuExpanded = false;
+
+    [ObservableProperty]
+    private bool _isBroadcastingMenuExpanded = false;
+
+    [ObservableProperty]
+    private bool _isManagementMenuExpanded = false;
+
+    [ObservableProperty]
     private ObservableCollection<Alert> _alerts = new();
 
     [ObservableProperty]
@@ -221,13 +239,139 @@ public partial class MainViewModel : ViewModelBase
     {
         if (!_activeRouterContext.IsConnected)
         {
-            _pendingNavigation = () => _navigationService.Navigate<Lux.Management.Console.Modules.MikroTik.ViewModels.MikroTikCenterViewModel>();
+            _pendingNavigation = () =>
+            {
+                _navigationService.Navigate<Lux.Management.Console.Modules.MikroTik.ViewModels.MikroTikCenterViewModel>();
+                if (_shellState.CurrentViewModel is Lux.Management.Console.Modules.MikroTik.ViewModels.MikroTikCenterViewModel centerVm)
+                {
+                    centerVm.IsNavPanelOpen = true;
+                }
+            };
             IsConnectionDialogVisible = true;
             return;
         }
-        
-        _navigationService.Navigate<Lux.Management.Console.Modules.MikroTik.ViewModels.MikroTikCenterViewModel>();
+
+        if (_shellState.CurrentViewModel is Lux.Management.Console.Modules.MikroTik.ViewModels.MikroTikCenterViewModel currentVm)
+        {
+            currentVm.IsNavPanelOpen = !currentVm.IsNavPanelOpen;
+        }
+        else
+        {
+            _navigationService.Navigate<Lux.Management.Console.Modules.MikroTik.ViewModels.MikroTikCenterViewModel>();
+            if (_shellState.CurrentViewModel is Lux.Management.Console.Modules.MikroTik.ViewModels.MikroTikCenterViewModel vm)
+            {
+                vm.IsNavPanelOpen = true;
+            }
+        }
     }
+
+    [RelayCommand]
+    private void ToggleMikroTikMenu() => IsMikroTikMenuExpanded = !IsMikroTikMenuExpanded;
+
+    [RelayCommand]
+    private void ToggleUserManagerMenu() => IsUserManagerMenuExpanded = !IsUserManagerMenuExpanded;
+
+    [RelayCommand]
+    private void ToggleRouterMgmtMenu() => IsRouterMgmtMenuExpanded = !IsRouterMgmtMenuExpanded;
+
+    [RelayCommand]
+    private void ToggleHotspotMenu() => IsHotspotMenuExpanded = !IsHotspotMenuExpanded;
+
+    [RelayCommand]
+    private void ToggleBroadcastingMenu() => IsBroadcastingMenuExpanded = !IsBroadcastingMenuExpanded;
+
+    [RelayCommand]
+    private void ToggleManagementMenu() => IsManagementMenuExpanded = !IsManagementMenuExpanded;
+
+    // ── User Manager Sub-pages ──
+    [RelayCommand]
+    private void NavigateBatches() => NavigateToMikroTikSubPage("User Manager", "الدفعات");
+
+    [RelayCommand]
+    private void NavigateVouchers() => NavigateToMikroTikSubPage("User Manager", "الكروت");
+
+    [RelayCommand]
+    private void NavigateProfiles() => NavigateToMikroTikSubPage("User Manager", "الباقات");
+
+    [RelayCommand]
+    private void NavigateAgents() => NavigateToMikroTikSubPage("User Manager", "الوكلاء");
+
+    [RelayCommand]
+    private void NavigateTemplates() => NavigateToMikroTikSubPage("User Manager", "الطباعة والقوالب");
+
+    [RelayCommand]
+    private void NavigateSales() => NavigateToMikroTikSubPage("User Manager", "المبيعات");
+
+    // ── Router Management Sub-pages ──
+    [RelayCommand]
+    private void NavigateRouterDashboard() => NavigateToMikroTikSubPage("إدارة الراوتر", "لوحة المعلومات");
+
+    [RelayCommand]
+    private void NavigateRouterResources() => NavigateToMikroTikSubPage("إدارة الراوتر", "الموارد");
+
+    [RelayCommand]
+    private void NavigateRouterInterfaces() => NavigateToMikroTikSubPage("إدارة الراوتر", "الواجهات");
+
+    [RelayCommand]
+    private void NavigateRouterIpAddresses() => NavigateToMikroTikSubPage("إدارة الراوتر", "عناوين IP");
+
+    [RelayCommand]
+    private void NavigateRouterDns() => NavigateToMikroTikSubPage("إدارة الراوتر", "DNS");
+
+    [RelayCommand]
+    private void NavigateRouterRoutes() => NavigateToMikroTikSubPage("إدارة الراوتر", "التوجيه");
+
+    [RelayCommand]
+    private void NavigateRouterBackups() => NavigateToMikroTikSubPage("إدارة الراوتر", "النسخ الاحتياطي");
+
+    [RelayCommand]
+    private void NavigateRouterOperations() => NavigateToMikroTikSubPage("إدارة الراوتر", "العمليات");
+
+    // ── NOC / VLANs Standalone ──
+    [RelayCommand]
+    private void NavigateNoc() => NavigateToMikroTikSubPage("الفيلانات", "الفيلانات");
+
+    // ── Hotspot Login Standalone ──
+    [RelayCommand]
+    private void NavigateHotspotLogin() => NavigateToMikroTikSubPage("صفحة تسجيل الدخول", "صفحة تسجيل الدخول");
+
+    private void NavigateToMikroTikSubPage(string sectionTitle, string subPageTitle)
+    {
+        if (!_activeRouterContext.IsConnected)
+        {
+            _pendingNavigation = () => PerformMikroTikSubPageNavigation(sectionTitle, subPageTitle);
+            IsConnectionDialogVisible = true;
+            return;
+        }
+
+        PerformMikroTikSubPageNavigation(sectionTitle, subPageTitle);
+    }
+
+    private void PerformMikroTikSubPageNavigation(string sectionTitle, string subPageTitle)
+    {
+        _navigationService.Navigate<Lux.Management.Console.Modules.MikroTik.ViewModels.MikroTikCenterViewModel>();
+        if (_shellState.CurrentViewModel is Lux.Management.Console.Modules.MikroTik.ViewModels.MikroTikCenterViewModel centerVm)
+        {
+            var section = centerVm.NavigationTree.FirstOrDefault(n => n.Title == sectionTitle);
+            if (section != null)
+            {
+                centerVm.SelectedSection = section;
+                if (section.Children != null && section.Children.Count > 0)
+                {
+                    var subNode = section.Children.FirstOrDefault(c => c.Title == subPageTitle);
+                    if (subNode != null)
+                    {
+                        centerVm.SelectedSubNode = subNode;
+                    }
+                }
+                else
+                {
+                    centerVm.SelectedSubNode = section;
+                }
+            }
+        }
+    }
+
 
     [RelayCommand]
     private void NavigateBroadcastingCenter()
@@ -269,6 +413,21 @@ public partial class MainViewModel : ViewModelBase
     private void NavigateSettings()
     {
         _navigationService.Navigate<Lux.Management.Console.Modules.Settings.ViewModels.SettingsViewModel>();
+    }
+
+    [RelayCommand]
+    private void NavigateMaintenanceCenter()
+    {
+        if (!_featureAuthorizationService.HasFeature(FeatureId.SystemMaintenance))
+        {
+            System.Windows.MessageBox.Show(
+                "ميزة صيانة النظام والجدولة غير متوفرة في النسخة المجانية.\nيرجى تفعيل البرنامج للوصول لكافة الميزات.",
+                "ميزة مقفلة",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+        _navigationService.Navigate<Lux.Management.Console.Modules.Maintenance.ViewModels.MaintenanceCenterViewModel>();
     }
 
     [RelayCommand]

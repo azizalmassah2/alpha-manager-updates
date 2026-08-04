@@ -20,10 +20,15 @@ public class ActiveRouterContext : IActiveRouterContext, IDisposable
     private readonly ISecureStorageService _secureStorageService;
     private readonly ILogger<ActiveRouterContext> _logger;
     private readonly SemaphoreSlim _connectionLock = new(1, 1);
-    
+
     private Router? _currentRouter;
     private bool _isConnected;
     private ConnectionState _state = ConnectionState.Unknown;
+
+    // [FIX I-04] Heartbeat: فحص دوري للاتصال
+    private Timer? _heartbeatTimer;
+    private CancellationTokenSource? _heartbeatCts;
+    private const int HeartbeatIntervalMs = 15_000; // 15 ثانية
 
     public Router? CurrentRouter => _currentRouter;
     public Guid? CurrentRouterId => _currentRouter?.Id;
@@ -149,6 +154,22 @@ public class ActiveRouterContext : IActiveRouterContext, IDisposable
                 _logger.LogInformation("Successfully connected to router: {Name}", router.DisplayName);
                 System.Console.WriteLine($"[CONTEXT] Successfully connected to router: {router.DisplayName}. State: {_state}, IsConnected: {_isConnected}");
                 ActiveRouterChanged?.Invoke(this, EventArgs.Empty);
+
+                // إعادة تهيئة Circuit Breaker لضمان إمكانية المزامنة فور عودة الاتصال
+                try
+                {
+                    var integrationService = scope.ServiceProvider.GetService<MikroTikVoucherPrinter.Application.Interfaces.IMikroTikIntegrationService>();
+                    integrationService?.ResetCircuitBreaker();
+                    _logger.LogInformation("✅ [ActiveRouterContext] Circuit Breaker reset after successful reconnection.");
+                }
+                catch (Exception cbEx)
+                {
+                    _logger.LogWarning(cbEx, "Failed to reset circuit breaker.");
+                }
+
+                // [FIX I-04] بدء Heartbeat وإيقاف مؤقت إعادة الاتصال بعد الاتصال الناجح
+                StopReconnectLoop();
+                StartHeartbeat();
             }
             catch (Exception ex)
             {
@@ -198,6 +219,9 @@ public class ActiveRouterContext : IActiveRouterContext, IDisposable
     {
         if (_currentRouter == null) return;
 
+        // [FIX I-04] إيقاف Heartbeat عند قطع الاتصال
+        StopHeartbeat();
+
         _logger.LogInformation("Disconnecting active router session: {Name}", _currentRouter.DisplayName);
 
         using var scope = _scopeFactory.CreateScope();
@@ -232,8 +256,149 @@ public class ActiveRouterContext : IActiveRouterContext, IDisposable
         await ConnectAsync(router, cancellationToken);
     }
 
+    // ─────────────────────────────────────────────────────────────
+    //  [FIX I-04] Heartbeat — فحص دوري للاتصال
+    // ─────────────────────────────────────────────────────────────
+    private void StartHeartbeat()
+    {
+        StopHeartbeat(); // إيقاف أي Heartbeat سابق
+        _heartbeatCts = new CancellationTokenSource();
+        _heartbeatTimer = new Timer(
+            async _ => await CheckConnectionAliveAsync(),
+            null,
+            HeartbeatIntervalMs,
+            HeartbeatIntervalMs);
+        _logger.LogDebug("[Heartbeat] بدأ فحص الاتصال كل {Interval}ms", HeartbeatIntervalMs);
+    }
+
+    private void StopHeartbeat()
+    {
+        _heartbeatCts?.Cancel();
+        _heartbeatCts?.Dispose();
+        _heartbeatCts = null;
+        _heartbeatTimer?.Dispose();
+        _heartbeatTimer = null;
+    }
+
+    // [FIX-RECONNECT] Reconnect polling timer
+    private Timer? _reconnectTimer;
+    private bool _isReconnecting;
+
+    public void MarkDisconnected(string reason)
+    {
+        if (!_isConnected && _state == ConnectionState.Disconnected) return;
+        
+        var routerName = _currentRouter?.DisplayName ?? "الراوتر";
+        _logger.LogWarning("Marking router {Name} as disconnected. Reason: {Reason}", routerName, reason);
+        
+        StopHeartbeat();
+        _isConnected = false;
+        _state = ConnectionState.Disconnected;
+        ActiveRouterChanged?.Invoke(this, EventArgs.Empty);
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var eventBus = scope.ServiceProvider.GetService<IEventBus>();
+            eventBus?.Publish(new MikroTikVoucherPrinter.Application.Events.AlertGeneratedEvent(
+                new Lux.Platform.Abstractions.Models.Monitoring.Alert
+                {
+                    Id = Guid.NewGuid(),
+                    Message = $"🔴 انقطع الاتصال بالراوتر ({routerName})! يرجى الفحص والتحقق من كابل الشبكة.",
+                    Severity = Lux.Platform.Abstractions.Models.Monitoring.AlertSeverity.Critical,
+                    Timestamp = DateTime.UtcNow
+                }));
+        }
+        catch { }
+
+        StartReconnectLoop();
+    }
+
+    private void StartReconnectLoop()
+    {
+        StopReconnectLoop();
+        _reconnectTimer = new Timer(async _ => await TryAutoReconnectAsync(), null, 4000, 4000);
+    }
+
+    private void StopReconnectLoop()
+    {
+        _reconnectTimer?.Dispose();
+        _reconnectTimer = null;
+        _isReconnecting = false;
+    }
+
+    private async Task TryAutoReconnectAsync()
+    {
+        if (_isConnected || _currentRouter == null || _isReconnecting) return;
+
+        _isReconnecting = true;
+        try
+        {
+            var targetRouter = _currentRouter;
+            _logger.LogInformation("🔄 [AutoReconnect] محاولة إعادة الاتصال التلقائي بالراوتر: {Name}", targetRouter.DisplayName);
+            await ConnectAsync(targetRouter);
+
+            if (_isConnected)
+            {
+                StopReconnectLoop();
+                _logger.LogInformation("🎉 [AutoReconnect] نجحت إعادة الاتصال التلقائي بالراوتر: {Name}", targetRouter.DisplayName);
+                
+                using var scope = _scopeFactory.CreateScope();
+                var eventBus = scope.ServiceProvider.GetService<IEventBus>();
+                eventBus?.Publish(new MikroTikVoucherPrinter.Application.Events.AlertGeneratedEvent(
+                    new Lux.Platform.Abstractions.Models.Monitoring.Alert
+                    {
+                        Id = Guid.NewGuid(),
+                        Message = $"🟢 تم استعادة الاتصال بالراوتر ({targetRouter.DisplayName}) تلقائياً!",
+                        Severity = Lux.Platform.Abstractions.Models.Monitoring.AlertSeverity.Information,
+                        Timestamp = DateTime.UtcNow
+                    }));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug("[AutoReconnect] لا تزال محاولة الاتصال غير متاحة: {Message}", ex.Message);
+        }
+        finally
+        {
+            _isReconnecting = false;
+        }
+    }
+
+    private async Task CheckConnectionAliveAsync()
+    {
+        if (!_isConnected || _currentRouter == null) return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var sessionManager = scope.ServiceProvider.GetRequiredService<IMikroTikSessionManager>();
+
+            if (!sessionManager.IsConnected)
+            {
+                MarkDisconnected("انقطع اتصال مقبس الراوتر");
+                return;
+            }
+
+            var commandExecutor = scope.ServiceProvider.GetRequiredService<IMikroTikCommandExecutor>();
+            var pingCmd = new MikroTikCommand { Command = "/system/identity/print" };
+            var res = await commandExecutor.ExecuteAsync(pingCmd, _heartbeatCts?.Token ?? CancellationToken.None);
+            if (!res.Success)
+            {
+                MarkDisconnected("فشل استجابة فحص هُوية الراوتر");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Heartbeat] فشل فحص الاتصال");
+            MarkDisconnected($"انقطاع كابل الشبكة أو الاتصال: {ex.Message}");
+        }
+    }
+
     public void Dispose()
     {
+        StopHeartbeat();
+        StopReconnectLoop();
         _connectionLock.Dispose();
         GC.SuppressFinalize(this);
     }

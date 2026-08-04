@@ -57,10 +57,15 @@ public class VoucherGenerationService : IVoucherGenerationService
         var batchId = Guid.NewGuid();
         var newBatch = new Batch
         {
-            Id = batchId,
-            Name = request.Mode == GenerationMode.Bulk ? $"Batch {DateTime.Now:yyyy-MM-dd HH:mm}" : $"Single {DateTime.Now:yyyy-MM-dd HH:mm}",
+            Id          = batchId,
+            Name        = request.Mode == GenerationMode.Bulk
+                ? $"Batch {DateTime.Now:yyyy-MM-dd HH:mm}"
+                : $"Single {DateTime.Now:yyyy-MM-dd HH:mm}",
             ProfileName = request.ProfileName,
-            TotalCount = count
+            TotalCards  = count,
+            Status      = Domain.Enums.BatchStatus.Generating,
+            SyncStatus  = Domain.Enums.BatchSyncStatus.Pending,
+            StartedAt   = DateTime.UtcNow,
         };
         await _batchRepo.AddAsync(newBatch, cancellationToken);
         result.BatchId = batchId;
@@ -140,7 +145,7 @@ public class VoucherGenerationService : IVoucherGenerationService
                     settings.CustomTemplateId = request.PrintTemplateId.Value;
                 }
 
-                var pdfResult = await _printService.GeneratePdfAsync(new List<VoucherDto>(vouchers), settings, cancellationToken);
+                var pdfResult = await _printService.GeneratePdfAsync(new List<VoucherDto>(vouchers), settings, cancellationToken: cancellationToken);
                 
                 if (pdfResult.IsSuccess)
                 {

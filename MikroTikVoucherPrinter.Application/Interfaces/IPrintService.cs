@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +11,11 @@ namespace MikroTikVoucherPrinter.Application.Interfaces;
 public interface IPrintService
 {
     /// <summary>
-    /// طھظˆظ„ظٹط¯ ظ…ظ„ظپ PDF ظٹط­طھظˆظٹ ط¹ظ„ظ‰ ط§ظ„ظƒط±ظˆطھ ط¨طھظ†ط³ظٹظ‚ A4 ط£ظˆ ط­ط±ط§ط±ظٹ ط¨ط´ظƒظ„ ظ…طھط¯ظپظ‚
+    /// توليد ملف PDF يحتوي على الكروت بتنسيق A4 أو حراري مع إمكانية التقرير المرحلي لتقدم البناء.
     /// </summary>
-    Task<Result<byte[]>> GeneratePdfAsync(List<VoucherDto> vouchers, PrintSettingsDto settings, CancellationToken cancellationToken = default);
+    Task<Result<byte[]>> GeneratePdfAsync(
+        List<VoucherDto> vouchers,
+        PrintSettingsDto settings,
+        IProgress<(int currentPage, int totalPages, string statusText)>? progress = null,
+        CancellationToken cancellationToken = default);
 }

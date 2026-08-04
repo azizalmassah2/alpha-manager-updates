@@ -47,13 +47,15 @@ public class VoucherQueryService : IVoucherQueryService
                 Price          = v.Price,
                 Status         = v.Status,
                 SyncStatus     = v.SyncStatus,
+                PrintStatus    = v.PrintStatus,
                 CreatedAt      = v.CreatedAt,
                 BatchId        = v.BatchId,
                 CredentialMode = v.CredentialMode,
                 DataOrigin     = VoucherDataOrigin.Local,
                 AgentName      = v.Agent != null ? v.Agent.Name : "-",
                 DownloadUsedBytes = v.DownloadUsedBytes,
-                UploadUsedBytes = v.UploadUsedBytes
+                UploadUsedBytes = v.UploadUsedBytes,
+                IsFavorite     = v.IsFavorite
             })
             .ToListAsync(cancellationToken);
     }
@@ -74,13 +76,15 @@ public class VoucherQueryService : IVoucherQueryService
                 Price          = v.Price,
                 Status         = v.Status,
                 SyncStatus     = v.SyncStatus,
+                PrintStatus    = v.PrintStatus,
                 CreatedAt      = v.CreatedAt,
                 BatchId        = v.BatchId,
                 CredentialMode = v.CredentialMode,
                 DataOrigin     = VoucherDataOrigin.Local,
                 AgentName      = v.Agent != null ? v.Agent.Name : "-",
                 DownloadUsedBytes = v.DownloadUsedBytes,
-                UploadUsedBytes = v.UploadUsedBytes
+                UploadUsedBytes = v.UploadUsedBytes,
+                IsFavorite     = v.IsFavorite
             })
             .ToListAsync(cancellationToken);
     }
@@ -149,6 +153,7 @@ public class VoucherQueryService : IVoucherQueryService
                 Price          = v.Price,
                 Status         = v.Status,
                 SyncStatus     = v.SyncStatus,
+                PrintStatus    = v.PrintStatus,
                 CreatedAt      = v.CreatedAt,
                 BatchId        = v.BatchId,
                 CredentialMode = v.CredentialMode,
@@ -156,7 +161,8 @@ public class VoucherQueryService : IVoucherQueryService
                 AgentName      = v.Agent != null ? v.Agent.Name : "-",
                 IsDeleted      = v.IsDeleted,
                 DownloadUsedBytes = v.DownloadUsedBytes,
-                UploadUsedBytes = v.UploadUsedBytes
+                UploadUsedBytes = v.UploadUsedBytes,
+                IsFavorite     = v.IsFavorite
             })
             .ToListAsync(cancellationToken);
     }
@@ -306,7 +312,8 @@ public class VoucherQueryService : IVoucherQueryService
                     DownloadUsedBytes = downloadUsed,
                     UploadUsedBytes = uploadUsed,
                     RouterTimeHint = BuildRouterTimeHint(sentence, isHotspot),
-                    AgentName = localFound ? (localVoucher!.Agent != null ? localVoucher.Agent.Name : "-") : "-"
+                    AgentName = localFound ? (localVoucher!.Agent != null ? localVoucher.Agent.Name : "-") : "-",
+                    IsFavorite = localFound ? localVoucher!.IsFavorite : false
                 };
                 result.Add(dto);
             }
@@ -342,7 +349,8 @@ public class VoucherQueryService : IVoucherQueryService
                     DataOrigin = VoucherDataOrigin.Local,
                     AgentName = local.Agent != null ? local.Agent.Name : "-",
                     DownloadUsedBytes = local.DownloadUsedBytes,
-                    UploadUsedBytes = local.UploadUsedBytes
+                    UploadUsedBytes = local.UploadUsedBytes,
+                    IsFavorite = local.IsFavorite
                 });
             }
 
@@ -540,6 +548,7 @@ public class VoucherQueryService : IVoucherQueryService
                 IsDisabled     = false, // المحلي ليس معطلاً بطبعه
                 IsDeleted      = v.IsDeleted,
                 SyncStatus     = v.SyncStatus,
+                PrintStatus    = v.PrintStatus,
                 CreatedAt      = v.CreatedAt,
                 BatchId        = v.BatchId,
                 CredentialMode = v.CredentialMode,
@@ -553,7 +562,8 @@ public class VoucherQueryService : IVoucherQueryService
                 VoucherSource = v.VoucherSource,
                 ImportDate = v.ImportDate,
                 CreatedBy = v.CreatedBy,
-                Comment = v.Comment
+                Comment = v.Comment,
+                IsFavorite = v.IsFavorite
             })
             .ToListAsync(cancellationToken);
 
@@ -601,6 +611,7 @@ public class VoucherQueryService : IVoucherQueryService
                 IsDisabled     = false,
                 IsDeleted      = v.IsDeleted,
                 SyncStatus     = v.SyncStatus,
+                PrintStatus    = v.PrintStatus,
                 CreatedAt      = v.CreatedAt,
                 BatchId        = v.BatchId,
                 CredentialMode = v.CredentialMode,
@@ -614,7 +625,8 @@ public class VoucherQueryService : IVoucherQueryService
                 VoucherSource = v.VoucherSource,
                 ImportDate = v.ImportDate,
                 CreatedBy = v.CreatedBy,
-                Comment = v.Comment
+                Comment = v.Comment,
+                IsFavorite = v.IsFavorite
             })
             .ToListAsync(cancellationToken);
 
@@ -687,6 +699,10 @@ public class VoucherQueryService : IVoucherQueryService
             if (statusMatch.HasValue)
             {
                 query = query.Where(v => v.Status == statusMatch.Value);
+            }
+            else if (parameters.FilterStatus is "Favorite" or "المفضلة")
+            {
+                query = query.Where(v => v.IsFavorite);
             }
             else if (parameters.FilterStatus == "Disabled")
             {

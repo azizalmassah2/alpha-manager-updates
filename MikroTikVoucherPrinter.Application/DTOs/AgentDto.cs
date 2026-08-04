@@ -15,5 +15,8 @@ public class AgentDto
     public decimal Balance        { get; set; }
     public bool    IsActive       { get; set; }
     public int     VoucherCount   { get; set; }
+    public decimal TotalSalesAmount { get; set; }
+    public decimal EarnedCommission { get; set; }
+    public decimal NetOwedBalance  { get; set; }
     public DateTime CreatedAt     { get; set; }
 }

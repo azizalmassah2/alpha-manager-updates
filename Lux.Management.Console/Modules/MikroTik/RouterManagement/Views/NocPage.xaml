@@ -96,7 +96,12 @@
 
             <!-- Interval Configuration & Add Button -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="➕ إضافة فيلان جديد"
+                <Button Content="📊 إنشاء تقرير"
+                        Style="{StaticResource ButtonInfo}"
+                        Command="{Binding OpenVlanReportCommand}"
+                        Margin="0,0,8,0"
+                        Height="30" Padding="12,0"/>
+                <Button Content="➕ إضافة فيلان"
                         Style="{StaticResource ButtonPrimary}"
                         Command="{Binding AddVlanCommand}"
                         Margin="0,0,16,0"
@@ -422,15 +427,11 @@
         <!-- ────────────────────────────────────────────────── -->
         <!-- Row 3: Minimized Collapsible Details & Alerts Log -->
         <!-- ────────────────────────────────────────────────── -->
-        <Grid Grid.Row="3" Margin="0,0,0,4">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="4.5*"/>
-                <ColumnDefinition Width="5.5*"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- 1. VLAN Details (Visible only when SelectedVlan != null, taking up ZERO height otherwise) -->
-            <Border Grid.Column="0" Margin="0,0,12,0"
-                    Visibility="{Binding SelectedVlan, Converter={StaticResource BoolToVisConverter}}">
+        <!-- ────────────────────────────────────────────────── -->
+        <!-- Row 3: Selected VLAN Details Panel                 -->
+        <!-- ────────────────────────────────────────────────── -->
+        <Grid Grid.Row="3" Margin="0,0,0,4" Visibility="{Binding SelectedVlan, Converter={StaticResource BoolToVisConverter}}">
+            <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Background="{StaticResource SurfaceBrush}">
                 <hc:Card Header="تفاصيل الفيلان المختار (Selected VLAN)">
                     <Grid Margin="6" DataContext="{Binding SelectedVlan}">
                         <Grid.RowDefinitions>
@@ -455,11 +456,11 @@
 
                         <!-- Byte stats -->
                         <StackPanel Grid.Row="0" Grid.Column="1" Margin="2">
-                            <TextBlock Text="إجمالي التحميل:" FontSize="8.5" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                            <TextBlock Text="إجمالي التحميل التراكمي:" FontSize="8.5" Foreground="{DynamicResource SecondaryTextBrush}"/>
                             <TextBlock Text="{Binding TotalDownloadText}" FontSize="11.5" FontWeight="Bold"/>
                         </StackPanel>
                         <StackPanel Grid.Row="1" Grid.Column="1" Margin="2">
-                            <TextBlock Text="إجمالي الرفع:" FontSize="8.5" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                            <TextBlock Text="إجمالي الرفع التراكمي:" FontSize="8.5" Foreground="{DynamicResource SecondaryTextBrush}"/>
                             <TextBlock Text="{Binding TotalUploadText}" FontSize="11.5" FontWeight="Bold"/>
                         </StackPanel>
 
@@ -475,31 +476,6 @@
                     </Grid>
                 </hc:Card>
             </Border>
-
-            <!-- 2. Collapsible Network Alerts Expander (Shows current Alerts count in header, starts collapsed) -->
-            <Expander Grid.Column="1" IsExpanded="False" 
-                      Header="{Binding Alerts.Count, StringFormat={}سجل التنبيهات الحية ({0})}"
-                      Style="{DynamicResource ExpanderStyle}">
-                <Border Height="110" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,1,1" CornerRadius="0,0,4,4">
-                    <ListBox ItemsSource="{Binding Alerts}" Style="{DynamicResource ListBox.Style}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="0,2">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="80"/>  <!-- Severity -->
-                                        <ColumnDefinition Width="100"/> <!-- Timestamp -->
-                                        <ColumnDefinition Width="*"/>   <!-- Message -->
-                                    </Grid.ColumnDefinitions>
-                                    
-                                    <TextBlock Grid.Column="0" Style="{StaticResource AlertSeverityStyle}" VerticalAlignment="Center" FontSize="11"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding Timestamp, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding Message}" FontSize="11.5" Foreground="{DynamicResource PrimaryTextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="6,0,0,0"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </Border>
-            </Expander>
         </Grid>
     </Grid>
 </UserControl>

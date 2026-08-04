@@ -271,7 +271,7 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                     Id = batchId,
                     Name = legacyBatchName,
                     ProfileName = "Legacy",
-                    TotalCount = 0,
+                    TotalCards = 0,
                     RouterId = routerId
                 };
                 
@@ -435,7 +435,7 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                             var batch = await dbWrite.Batches.FirstOrDefaultAsync(b => b.Id == batchId, token);
                             if (batch != null)
                             {
-                                batch.TotalCount += chunk.Count;
+                                batch.TotalCards += chunk.Count;
                             }
                             await dbWrite.SaveChangesAsync(token);
 
@@ -556,7 +556,7 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                     Id = batchId,
                     Name = legacyBatchName,
                     ProfileName = "Legacy",
-                    TotalCount = 0,
+                    TotalCards = 0,
                     RouterId = routerId
                 };
                 db.Batches.Add(legacyBatch);
@@ -656,7 +656,7 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                             var batch = await dbWrite.Batches.FirstOrDefaultAsync(b => b.Id == batchId, token);
                             if (batch != null)
                             {
-                                batch.TotalCount += chunk.Count;
+                                batch.TotalCards += chunk.Count;
                             }
                             await dbWrite.SaveChangesAsync(token);
 
@@ -1159,7 +1159,7 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                             Id = Guid.NewGuid(),
                             Name = $"LEGACY-IMPORT-{DateTime.UtcNow:yyyyMMdd}",
                             ProfileName = "Legacy",
-                            TotalCount = 0,
+                            TotalCards = 0,
                             RouterId = routerId
                         };
                         db.Batches.Add(importBatch);
@@ -1554,7 +1554,7 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                     Id = Guid.NewGuid(),
                     Name = $"LEGACY-IMPORT-{DateTime.UtcNow:yyyyMMdd}",
                     ProfileName = "Legacy",
-                    TotalCount = 0,
+                    TotalCards = 0,
                     RouterId = routerId
                 };
                 db.Batches.Add(importBatch);
@@ -1781,7 +1781,26 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                 var destPath = Path.Combine(cacheDir, $"userman_{routerId}.db");
                 if (System.IO.File.Exists(destPath))
                 {
-                    return destPath;
+                    try
+                    {
+                        using var conn = new SqliteConnection($"Data Source={destPath};Mode=ReadOnly;Cache=Shared");
+                        conn.Open();
+                        using var cmd = conn.CreateCommand();
+                        cmd.CommandText = "PRAGMA quick_check;";
+                        var res = cmd.ExecuteScalar()?.ToString();
+                        if (string.Equals(res, "ok", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return destPath;
+                        }
+                        _logger.LogWarning("⚠️ [UserManagerCache] Cached SQLite DB for router {RouterId} quick_check returned: {Result}. Deleting corrupt file.", routerId, res);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "⚠️ [UserManagerCache] Cached SQLite DB for router {RouterId} is malformed/corrupted. Deleting corrupt file.", routerId);
+                    }
+
+                    SqliteConnection.ClearAllPools();
+                    TryDelete(destPath);
                 }
             }
             catch
@@ -2020,11 +2039,19 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
         {
             var candidates = new[]
             {
-                "disk1/user-manager/sqldb",
                 "user-manager/sqldb",
+                "disk1/user-manager/sqldb",
+                "disk2/user-manager/sqldb",
                 "flash/user-manager/sqldb",
+                "pub/user-manager/sqldb",
                 "userman1/sqldb",
-                "disk1/userman1/sqldb"
+                "disk1/userman1/sqldb",
+                "usb1/user-manager/sqldb",
+                "sata1/user-manager/sqldb",
+                "user-manager4/sqldb",
+                "disk1/user-manager4/sqldb",
+                "um/sqldb",
+                "disk1/um/sqldb"
             };
 
             var found = new List<(string path, long size)>();
@@ -2277,6 +2304,19 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                     src.Open();
                     dst.Open();
                     src.BackupDatabase(dst);
+                }
+
+                // Verify cleanDb integrity
+                using (var chk = new SqliteConnection($"Data Source={cleanDb};Mode=ReadOnly;Cache=Shared"))
+                {
+                    chk.Open();
+                    using var cmd = chk.CreateCommand();
+                    cmd.CommandText = "PRAGMA quick_check;";
+                    var chkRes = cmd.ExecuteScalar()?.ToString();
+                    if (!string.Equals(chkRes, "ok", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidDataException($"Downloaded database quick_check failed: {chkRes}");
+                    }
                 }
 
                 SqliteConnection.ClearAllPools();

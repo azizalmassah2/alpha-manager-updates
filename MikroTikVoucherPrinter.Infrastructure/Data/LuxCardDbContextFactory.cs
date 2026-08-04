@@ -30,5 +30,6 @@ public class LuxCardDbContextFactory : IDesignTimeDbContextFactory<LuxCardDbCont
         public Task ConnectAsync(Router router, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task DisconnectAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task SwitchRouterAsync(Router router, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public void MarkDisconnected(string reason) { }
     }
 }

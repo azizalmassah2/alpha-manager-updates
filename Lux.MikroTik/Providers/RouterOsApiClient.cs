@@ -129,7 +129,8 @@ public class RouterOsApiClient : IRouterOsApiClient, IDisposable
             || command.EndsWith("/save", StringComparison.OrdinalIgnoreCase)
             || command.EndsWith("/load", StringComparison.OrdinalIgnoreCase)
             || command.EndsWith("/reboot", StringComparison.OrdinalIgnoreCase)
-            || command.EndsWith("/shutdown", StringComparison.OrdinalIgnoreCase);
+            || command.EndsWith("/shutdown", StringComparison.OrdinalIgnoreCase)
+            || command.EndsWith("/run", StringComparison.OrdinalIgnoreCase);  // /system/script/run requires NameValue for .id/number
     }
 
     private async Task<IEnumerable<ITikSentence>> ExecuteWithRetryAsync(string command, string[] parameters)

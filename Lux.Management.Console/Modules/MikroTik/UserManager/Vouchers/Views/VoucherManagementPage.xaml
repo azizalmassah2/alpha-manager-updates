@@ -222,7 +222,6 @@
                         <Button Content="حذف المحدد  🗑️" Command="{Binding DeleteSelectedCommand}" Style="{DynamicResource ButtonDanger}" Height="28" Padding="10,0" FontSize="11" Margin="0,0,6,0" Visibility="{Binding IsNotRecycleBinActive, Converter={StaticResource BoolToVis}}"/>
                         <Button Content="استعادة المحدد  ↻" Command="{Binding RestoreSelectedCommand}" Style="{DynamicResource ButtonPrimary}" Height="28" Padding="10,0" FontSize="11" Margin="0,0,6,0" Visibility="{Binding IsRecycleBinActive, Converter={StaticResource BoolToVis}}"/>
                         <Button Content="إعادة محاولة المزامنة  ⚠" Command="{Binding RetryFailedCommand}" Style="{DynamicResource ButtonDefault}" Height="28" Padding="10,0" FontSize="11" Margin="0,0,6,0" Visibility="{Binding HasFailedSyncs, Converter={StaticResource BoolToVis}}"/>
-                        <Button Content="تفاصيل الكرت  📄" Command="{Binding ShowVoucherDetailsCommand}" CommandParameter="{Binding SelectedVoucher}" Style="{DynamicResource ButtonDefault}" Height="28" Padding="10,0" FontSize="11" Margin="0,0,6,0"/>
                         <Button Content="مزامنة فورية  ↻" Command="{Binding RefreshCommand}" Style="{DynamicResource ButtonDefault}" Height="28" Padding="10,0" FontSize="11"/>
                     </StackPanel>
 
@@ -263,6 +262,7 @@
                         <TextBlock Text="الحالة:" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                         <ComboBox Width="120" Height="32" SelectedValue="{Binding FilterStatus}" SelectedValuePath="Tag" VerticalContentAlignment="Center">
                             <ComboBoxItem Content="الكل" Tag="All" IsSelected="True"/>
+                            <ComboBoxItem Content="المفضلة ⭐" Tag="Favorite"/>
                             <ComboBoxItem Content="غير مستخدم" Tag="Unused"/>
                             <ComboBoxItem Content="مستخدم" Tag="Used"/>
                             <ComboBoxItem Content="منتهي" Tag="Expired"/>
@@ -518,7 +518,52 @@
                               SelectionMode="Extended"
                               SelectionChanged="VouchersDataGrid_SelectionChanged"
                               ScrollViewer.ScrollChanged="VouchersDataGrid_ScrollChanged">
-                              
+
+                        <!-- Context Menu and Double Click for DataGrid row -->
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                <EventSetter Event="MouseDoubleClick" Handler="VouchersDataGridRow_MouseDoubleClick"/>
+                                <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                <Setter Property="ContextMenu">
+                                    <Setter.Value>
+                                        <ContextMenu>
+                                            <MenuItem Header="إضافة / إزالة من المفضلة  ⭐" 
+                                                      Command="{Binding PlacementTarget.Tag.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                            <MenuItem Header="إعادة شحن الكرت  ⚡" 
+                                                      Command="{Binding PlacementTarget.Tag.RechargeVoucherCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                            <MenuItem Header="إعادة إنشاء الكرت  🔄" 
+                                                      Command="{Binding PlacementTarget.Tag.RecreateVoucherCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                            <Separator/>
+                                            <MenuItem Header="تقرير الكرت التفصيلي  📄" 
+                                                      Command="{Binding PlacementTarget.Tag.ShowVoucherDetailsCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                            <MenuItem Header="نسخ اسم المستخدم" 
+                                                      Command="{Binding PlacementTarget.Tag.CopyUsernameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                            <MenuItem Header="نسخ كلمة السر" 
+                                                      Command="{Binding PlacementTarget.Tag.CopyPasswordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                            <MenuItem Header="إعادة طباعة" 
+                                                      Command="{Binding PlacementTarget.Tag.PrintSelectedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                            <Separator/>
+                                            <MenuItem Header="حذف" 
+                                                      Command="{Binding PlacementTarget.Tag.DeleteSelectedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      Visibility="{Binding PlacementTarget.Tag.IsNotRecycleBinActive, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource BoolToVis}}"/>
+                                            <MenuItem Header="استعادة" 
+                                                      Command="{Binding PlacementTarget.Tag.RestoreSelectedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      Visibility="{Binding PlacementTarget.Tag.IsRecycleBinActive, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource BoolToVis}}"/>
+                                        </ContextMenu>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </DataGrid.RowStyle>
+
                         <DataGrid.Columns>
                             <!-- 1. Checkbox Column -->
                             <DataGridTemplateColumn Width="45">
@@ -544,8 +589,18 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <!-- 2. اسم المستخدم -->
-                            <DataGridTextColumn Header="اسم المستخدم" Binding="{Binding Username}" Width="2.5*" SortMemberPath="Username" ElementStyle="{StaticResource CenterTextBlockStyle}"/>
+                            <!-- 2. اسم المستخدم مع مؤشر المفضلة -->
+                            <DataGridTemplateColumn Header="اسم المستخدم" Width="2.5*" SortMemberPath="Username">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock Text="⭐ " FontSize="11" Foreground="#FFD700" VerticalAlignment="Center"
+                                                       Visibility="{Binding IsFavorite, Converter={StaticResource BoolToVis}}"/>
+                                            <TextBlock Text="{Binding Username}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
 
                             <!-- 3. اسم الباقة -->
                             <DataGridTextColumn Header="اسم الباقة" Binding="{Binding Profile}" Width="1.8*" SortMemberPath="Profile" ElementStyle="{StaticResource CenterTextBlockStyle}"/>
@@ -589,7 +644,53 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <!-- 7. تاريخ الإنشاء -->
+                            <!-- 7. حالة المزامنة -->
+                            <DataGridTemplateColumn Header="حالة المزامنة" Width="1.3*" SortMemberPath="IsSyncedText">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding IsSyncedText}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#FFF59E0B"/>
+                                                    <Style.Triggers>
+                                                        <!-- مزامن -> أخضر -->
+                                                        <DataTrigger Binding="{Binding SyncStatus}" Value="Synced">
+                                                            <Setter Property="Foreground" Value="#FF10B981"/>
+                                                        </DataTrigger>
+                                                        <!-- فشل المزامنة -> أحمر -->
+                                                        <DataTrigger Binding="{Binding SyncStatus}" Value="Failed">
+                                                            <Setter Property="Foreground" Value="#FFEF4444"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- 8. حالة الطباعة -->
+                            <DataGridTemplateColumn Header="حالة الطباعة" Width="1.3*" SortMemberPath="PrintStatusText">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding PrintStatusText}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#FF9CA3AF"/>
+                                                    <Style.Triggers>
+                                                        <!-- مطبوع -> أخضر -->
+                                                        <DataTrigger Binding="{Binding IsPrinted}" Value="True">
+                                                            <Setter Property="Foreground" Value="#FF10B981"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- 9. تاريخ الإنشاء -->
                             <DataGridTextColumn Header="تاريخ الإنشاء" Binding="{Binding CreatedAt, StringFormat={}{0:yyyy/MM/dd HH:mm}}" Width="1.4*" ElementStyle="{StaticResource CenterTextBlockStyle}"/>
 
                             <!-- 8. القائمة الجانبية للصف (⋮) -->
@@ -604,30 +705,41 @@
                                                 Padding="0"
                                                 Cursor="Hand"
                                                 VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 Click="BtnRowMenu_Click">
                                             <Button.ContextMenu>
                                                 <ContextMenu>
+                                                    <MenuItem Header="إضافة / إزالة من المفضلة  ⭐" 
+                                                              Command="{Binding PlacementTarget.Tag.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                              CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                    <MenuItem Header="إعادة شحن الكرت  ⚡" 
+                                                              Command="{Binding PlacementTarget.Tag.RechargeVoucherCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                              CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                    <MenuItem Header="إعادة إنشاء الكرت  🔄" 
+                                                              Command="{Binding PlacementTarget.Tag.RecreateVoucherCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                              CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                    <Separator/>
                                                     <MenuItem Header="تقرير الكرت التفصيلي  📄" 
-                                                              Command="{Binding DataContext.ShowVoucherDetailsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                                              CommandParameter="{Binding}"/>
+                                                              Command="{Binding PlacementTarget.Tag.ShowVoucherDetailsCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                              CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                     <MenuItem Header="نسخ اسم المستخدم" 
-                                                              Command="{Binding DataContext.CopyUsernameCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                                              CommandParameter="{Binding}"/>
+                                                              Command="{Binding PlacementTarget.Tag.CopyUsernameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                              CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                     <MenuItem Header="نسخ كلمة السر" 
-                                                              Command="{Binding DataContext.CopyPasswordCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                                              CommandParameter="{Binding}"/>
+                                                              Command="{Binding PlacementTarget.Tag.CopyPasswordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                              CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                     <MenuItem Header="إعادة طباعة" 
-                                                              Command="{Binding DataContext.PrintSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                                              CommandParameter="{Binding}"/>
+                                                              Command="{Binding PlacementTarget.Tag.PrintSelectedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                              CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                     <Separator/>
                                                     <MenuItem Header="حذف" 
-                                                              Command="{Binding DataContext.DeleteSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                                              CommandParameter="{Binding}"
-                                                              Visibility="{Binding DataContext.IsNotRecycleBinActive, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"/>
+                                                              Command="{Binding PlacementTarget.Tag.DeleteSelectedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                              CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                              Visibility="{Binding PlacementTarget.Tag.IsNotRecycleBinActive, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource BoolToVis}}"/>
                                                     <MenuItem Header="استعادة" 
-                                                              Command="{Binding DataContext.RestoreSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                                              CommandParameter="{Binding}"
-                                                              Visibility="{Binding DataContext.IsRecycleBinActive, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"/>
+                                                              Command="{Binding PlacementTarget.Tag.RestoreSelectedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                              CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                              Visibility="{Binding PlacementTarget.Tag.IsRecycleBinActive, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource BoolToVis}}"/>
                                                 </ContextMenu>
                                             </Button.ContextMenu>
                                         </Button>

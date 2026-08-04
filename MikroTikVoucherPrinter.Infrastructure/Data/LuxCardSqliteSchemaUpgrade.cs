@@ -11,7 +11,7 @@ namespace MikroTikVoucherPrinter.Infrastructure.Data;
 /// </summary>
 public static class LuxCardSqliteSchemaUpgrade
 {
-    private const int CurrentSchemaVersion = 14;
+    private const int CurrentSchemaVersion = 17;
 
     public static async Task ApplyAsync(LuxCardDbContext db, ILogger logger, CancellationToken cancellationToken = default)
     {
@@ -43,6 +43,9 @@ public static class LuxCardSqliteSchemaUpgrade
             await EnsurePrintJobColumnsAsync(conn, logger, cancellationToken);
             await EnsureVoucherColumnsAsync(conn, logger, cancellationToken);
             await EnsurePrintJobEventsTableAsync(conn, cancellationToken);
+
+            // v16 — Vlan Telemetry State table
+            await EnsureVlanTelemetryStatesTableAsync(conn, cancellationToken);
 
             // v9 — Voucher Import Engine columns (VoucherSource, ImportDate, CreatedBy, Comment)
             if (applied < 9)
@@ -78,11 +81,28 @@ public static class LuxCardSqliteSchemaUpgrade
                 await EnsureAgentColumnsAsync(conn, logger, cancellationToken);
             }
 
-            // v14 — Add SystemType column to Profiles (was missing from EnsureProfileColumnsAsync,
-            //        causing "no such column: p.SystemType" on customer machines with existing databases)
+            // v14 — Add SystemType column to Profiles
             if (applied < 14)
             {
                 await EnsureProfileColumnsAsync(conn, logger, cancellationToken);
+            }
+
+            // v15 — Add IsFavorite column to Vouchers
+            if (applied < 15)
+            {
+                await EnsureVoucherColumnsAsync(conn, logger, cancellationToken);
+            }
+
+            // v16 — Add VlanTelemetryStates table for persistent VLAN usage stats across reboots
+            if (applied < 16)
+            {
+                await EnsureVlanTelemetryStatesTableAsync(conn, cancellationToken);
+            }
+
+            // v17 — Add Full Batch-Centric Architecture columns & indexes to Batches table
+            if (applied < 17)
+            {
+                await EnsureBatchColumnsAsync(conn, logger, cancellationToken);
             }
 
             await InsertVersionRowAsync(conn, CurrentSchemaVersion, cancellationToken);
@@ -496,6 +516,44 @@ public static class LuxCardSqliteSchemaUpgrade
 
         var cols = await GetColumnNamesForAnyTableAsync(conn, "Batches", ct);
         await TryAddColumnAsync(conn, cols, "Batches", "RouterId", "TEXT NOT NULL DEFAULT ''", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "Description", "TEXT NOT NULL DEFAULT ''", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "CreatedBy", "TEXT NOT NULL DEFAULT 'Lux System'", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "TotalCards", "INTEGER NOT NULL DEFAULT 0", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "GeneratedCards", "INTEGER NOT NULL DEFAULT 0", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "SyncedCards", "INTEGER NOT NULL DEFAULT 0", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "FailedCards", "INTEGER NOT NULL DEFAULT 0", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "PrintedCards", "INTEGER NOT NULL DEFAULT 0", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "Status", "INTEGER NOT NULL DEFAULT 0", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "SyncStatus", "INTEGER NOT NULL DEFAULT 0", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "PrintStatus", "INTEGER NOT NULL DEFAULT 0", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "PdfPath", "TEXT", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "PdfHash", "TEXT", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "ErrorMessage", "TEXT", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "LastError", "TEXT", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "RetryCount", "INTEGER NOT NULL DEFAULT 0", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "StartedAt", "TEXT", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "CompletedAt", "TEXT", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "CancelledAt", "TEXT", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "LastSyncTime", "TEXT", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "LastPrintTime", "TEXT", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Batches", "Metadata", "TEXT", logger, ct);
+
+        // إذا كان حقل TotalCount القديم موجوداً، ننقل قيمته إلى TotalCards
+        if (cols.Contains("TotalCount"))
+        {
+            await using var copyCmd = conn.CreateCommand();
+            copyCmd.CommandText = "UPDATE \"Batches\" SET \"TotalCards\" = \"TotalCount\" WHERE (\"TotalCards\" IS NULL OR \"TotalCards\" = 0) AND \"TotalCount\" > 0;";
+            await copyCmd.ExecuteNonQueryAsync(ct);
+        }
+
+        // إضافة الدلائل (Indexes)
+        await using var indexCmd = conn.CreateCommand();
+        indexCmd.CommandText = """
+            CREATE INDEX IF NOT EXISTS "IX_Batches_Status" ON "Batches" ("Status");
+            CREATE INDEX IF NOT EXISTS "IX_Batches_SyncStatus" ON "Batches" ("SyncStatus");
+            CREATE INDEX IF NOT EXISTS "IX_Batches_RouterId_Status" ON "Batches" ("RouterId", "Status");
+            """;
+        await indexCmd.ExecuteNonQueryAsync(ct);
     }
 
     private static async Task<HashSet<string>> GetColumnNamesForAnyTableAsync(DbConnection conn, string table, CancellationToken ct)
@@ -603,6 +661,7 @@ public static class LuxCardSqliteSchemaUpgrade
         await TryAddColumnAsync(conn, cols, "Vouchers", "CreatedBy", "TEXT NULL", logger, ct);
         await TryAddColumnAsync(conn, cols, "Vouchers", "Comment", "TEXT NULL", logger, ct);
         await TryAddColumnAsync(conn, cols, "Vouchers", "IsDisabled", "INTEGER NOT NULL DEFAULT 0", logger, ct);
+        await TryAddColumnAsync(conn, cols, "Vouchers", "IsFavorite", "INTEGER NOT NULL DEFAULT 0", logger, ct);
         await TryAddColumnAsync(conn, cols, "Vouchers", "BytesUsed", "INTEGER NOT NULL DEFAULT 0", logger, ct);
         await TryAddColumnAsync(conn, cols, "Vouchers", "UptimeUsedSeconds", "INTEGER NOT NULL DEFAULT 0", logger, ct);
         await TryAddColumnAsync(conn, cols, "Vouchers", "DeletedDate", "TEXT NULL", logger, ct);
@@ -632,6 +691,33 @@ public static class LuxCardSqliteSchemaUpgrade
             );
             CREATE INDEX IF NOT EXISTS "IX_PrintJobEvents_JobId" ON "PrintJobEvents" ("JobId");
             CREATE INDEX IF NOT EXISTS "IX_PrintJobEvents_RouterId" ON "PrintJobEvents" ("RouterId");
+            """;
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    private static async Task EnsureVlanTelemetryStatesTableAsync(DbConnection conn, CancellationToken ct)
+    {
+        if (await TableExistsAsync(conn, "VlanTelemetryStates", ct))
+            return;
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            CREATE TABLE IF NOT EXISTS "VlanTelemetryStates" (
+                "Id"                 TEXT NOT NULL CONSTRAINT "PK_VlanTelemetryStates" PRIMARY KEY,
+                "RouterId"           TEXT NOT NULL,
+                "VlanName"           TEXT NOT NULL,
+                "CumulativeRxBytes" INTEGER NOT NULL DEFAULT 0,
+                "CumulativeTxBytes" INTEGER NOT NULL DEFAULT 0,
+                "LastRawRxBytes"    INTEGER NOT NULL DEFAULT 0,
+                "LastRawTxBytes"    INTEGER NOT NULL DEFAULT 0,
+                "LastSampleTime"    TEXT NOT NULL,
+                "RebootCount"       INTEGER NOT NULL DEFAULT 0,
+                "CreatedAt"         TEXT NOT NULL DEFAULT '',
+                "UpdatedAt"         TEXT NULL,
+                "IsDeleted"         INTEGER NOT NULL DEFAULT 0,
+                "RowVersion"        BLOB NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_VlanTelemetryStates_RouterId_VlanName" ON "VlanTelemetryStates" ("RouterId", "VlanName");
             """;
         await cmd.ExecuteNonQueryAsync(ct);
     }

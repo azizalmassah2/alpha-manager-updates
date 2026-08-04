@@ -16,17 +16,27 @@ namespace Lux.Management.Console.Modules.MikroTik.Views
 
         private void OnPageLoaded(object sender, RoutedEventArgs e)
         {
-            // يُنفَّذ مرة واحدة فقط
+            // يُنفَّذ مرة واحدة فقط عند فتح الصفحة لأول مرة
             this.Loaded -= OnPageLoaded;
 
-            if (DataContext is MikroTikCenterViewModel vm && vm.SelectedSection == null)
+            if (DataContext is MikroTikCenterViewModel vm)
             {
-                // الانتقال للـ User Manager بعد ظهور الشاشة — لا تجميد
-                var defaultLanding = vm.NavigationTree.FirstOrDefault(n => n.Title == "User Manager");
-                if (defaultLanding != null)
-                    vm.SelectedSection = defaultLanding;
-                else if (vm.NavigationTree.Count > 1)
-                    vm.SelectedSection = vm.NavigationTree[1];
+                bool wasOpenRequested = vm.IsNavPanelOpen;
+                if (vm.SelectedSection == null)
+                {
+                    // الانتقال للـ User Manager افتراضياً
+                    var defaultLanding = vm.NavigationTree.FirstOrDefault(n => n.Title == "User Manager");
+                    if (defaultLanding != null)
+                        vm.SelectedSection = defaultLanding;
+                    else if (vm.NavigationTree.Count > 0)
+                        vm.SelectedSection = vm.NavigationTree[0];
+                }
+
+                // الحفاظ على السايد بار مفتوحاً إذا تم طلبه عند النقر
+                if (wasOpenRequested)
+                {
+                    vm.IsNavPanelOpen = true;
+                }
             }
         }
     }

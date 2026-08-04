@@ -25,11 +25,15 @@
              xmlns:converters="clr-namespace:Lux.Management.Console.Converters"
              xmlns:dbexplorerviews="clr-namespace:Lux.Management.Console.Modules.Settings.Views"
              xmlns:dbexplorervms="clr-namespace:Lux.Management.Console.Modules.Settings.ViewModels"
+             xmlns:batchesviews="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Batches.Views"
+             xmlns:batchesvms="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Batches.ViewModels"
              xmlns:views="clr-namespace:Lux.Management.Console.Views"
              xmlns:backupsvms="clr-namespace:Lux.Management.Console.Modules.MikroTik.Backups.ViewModels"
              xmlns:backupsviews="clr-namespace:Lux.Management.Console.Modules.MikroTik.Backups.Views"
              xmlns:hotspotviews="clr-namespace:Lux.Management.Console.Modules.MikroTik.Hotspot.Views"
              xmlns:hotspotvms="clr-namespace:Lux.Management.Console.Modules.MikroTik.Hotspot.ViewModels"
+             xmlns:maintviews="clr-namespace:Lux.Management.Console.Modules.Maintenance.Views"
+             xmlns:maintvms="clr-namespace:Lux.Management.Console.Modules.Maintenance.ViewModels"
              Startup="OnStartup"
              Exit="OnExit"
              ShutdownMode="OnExplicitShutdown">
@@ -65,6 +69,9 @@
             
             <DataTemplate DataType="{x:Type vouchervms:VoucherManagementViewModel}">
                 <voucherviews:VoucherManagementPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type batchesvms:BatchManagementViewModel}">
+                <batchesviews:BatchManagementPage />
             </DataTemplate>
             <DataTemplate DataType="{x:Type printingvms:TemplateManagementViewModel}">
                 <printingviews:TemplateManagementPage />
@@ -103,6 +110,9 @@
             </DataTemplate>
             <DataTemplate DataType="{x:Type backupsvms:BackupsViewModel}">
                 <backupsviews:BackupsPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type maintvms:MaintenanceCenterViewModel}">
+                <maintviews:MaintenanceCenterPage />
             </DataTemplate>
             
             <DataTemplate DataType="{x:Type hotspotvms:HotspotLoginViewModel}">

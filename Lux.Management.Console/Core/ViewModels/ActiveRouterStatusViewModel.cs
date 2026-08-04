@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -23,6 +23,9 @@ public partial class ActiveRouterStatusViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private ConnectionState _state = ConnectionState.Disconnected;
 
+    [ObservableProperty]
+    private bool _isConnected;
+
     public ActiveRouterStatusViewModel(IActiveRouterContext activeRouterContext)
     {
         _activeRouterContext = activeRouterContext;
@@ -42,6 +45,7 @@ public partial class ActiveRouterStatusViewModel : ObservableObject, IDisposable
     private void UpdateStatus()
     {
         State = _activeRouterContext.State;
+        IsConnected = _activeRouterContext.IsConnected;
 
         if (_activeRouterContext.CurrentRouter != null && _activeRouterContext.IsConnected)
         {

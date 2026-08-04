@@ -556,7 +556,7 @@ public partial class GenerateVoucherViewModel : BaseViewModel
                     Id = batchId,
                     Name = $"ط¯ظپط¹ط© {DateTime.Now:yyyy-MM-dd HH:mm}",
                     ProfileName = SelectedProfile.Name,
-                    TotalCount = Count
+                    TotalCards = Count
                 };
                 await _batchRepo.AddAsync(newBatch, token);
 
@@ -702,7 +702,7 @@ public partial class GenerateVoucherViewModel : BaseViewModel
                 Id = batchId,
                 Name = $"ط¨ط·ط§ظ‚ط© ظ…ظپط±ط¯ط© {DateTime.Now:yyyy-MM-dd HH:mm}",
                 ProfileName = SelectedProfile.Name,
-                TotalCount = 1
+                TotalCards = 1
             };
             await _batchRepo.AddAsync(newBatch, token);
 
@@ -794,7 +794,7 @@ public partial class GenerateVoucherViewModel : BaseViewModel
                 settings.CustomTemplateId = tid.Value;
 
             var pdfResult = await _printService.GeneratePdfAsync(
-                new List<VoucherDto>(vouchers), settings, token);
+                new List<VoucherDto>(vouchers), settings, null, token);
 
             if (pdfResult.IsSuccess)
             {

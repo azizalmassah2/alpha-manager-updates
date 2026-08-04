@@ -1,4 +1,5 @@
 using System;
+using CommunityToolkit.Mvvm.ComponentModel;
 using MikroTikVoucherPrinter.Domain.Enums;
 using Lux.Platform.Abstractions.Common;
 
@@ -7,7 +8,7 @@ namespace MikroTikVoucherPrinter.Application.DTOs;
 /// <summary>
 /// بيانات الكرت للعرض في الواجهة
 /// </summary>
-public class VoucherDto
+public class VoucherDto : ObservableObject
 {
     public Guid Id { get; set; }
     public string Username { get; set; } = string.Empty;
@@ -17,6 +18,13 @@ public class VoucherDto
     public VoucherStatus Status { get; set; }
     public bool IsDisabled { get; set; }
     public bool IsDeleted { get; set; }
+
+    private bool _isFavorite;
+    public bool IsFavorite
+    {
+        get => _isFavorite;
+        set => SetProperty(ref _isFavorite, value);
+    }
 
     /// <summary>مصدر السجل في العرض (محلي / دمج مع الراوتر).</summary>
     public VoucherDataOrigin DataOrigin { get; set; } = VoucherDataOrigin.Local;
@@ -76,10 +84,35 @@ public class VoucherDto
     public string SyncStatusText => SyncStatus switch
     {
         SyncStatus.Pending => "قيد الانتظار",
-        SyncStatus.Synced => "متزامن",
+        SyncStatus.Synced => "مزامن",
         SyncStatus.Failed => "فشل المزامنة",
         _ => "غير معروف"
     };
+
+    public string IsSyncedText => SyncStatus switch
+    {
+        SyncStatus.Synced => "مزامن",
+        SyncStatus.Failed => "فشل المزامنة",
+        _ => "غير مزامن"
+    };
+
+    private VoucherPrintStatus _printStatus = VoucherPrintStatus.Reserved;
+    public VoucherPrintStatus PrintStatus
+    {
+        get => _printStatus;
+        set
+        {
+            if (SetProperty(ref _printStatus, value))
+            {
+                OnPropertyChanged(nameof(IsPrinted));
+                OnPropertyChanged(nameof(PrintStatusText));
+            }
+        }
+    }
+
+    public bool IsPrinted => PrintStatus == VoucherPrintStatus.Printed || PrintStatus == VoucherPrintStatus.PdfGenerated;
+
+    public string PrintStatusText => IsPrinted ? "مطبوع" : "غير مطبوع";
 
     public DateTime CreatedAt { get; set; }
     public Guid BatchId { get; set; }

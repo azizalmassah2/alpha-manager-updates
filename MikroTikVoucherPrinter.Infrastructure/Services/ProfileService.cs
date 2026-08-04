@@ -170,6 +170,7 @@ public class ProfileService : IProfileService
                 RateLimit = rateLimit ?? "",
                 SharedUsers = sharedUsers ?? "1",
                 RouterHost = _routerContext.CurrentRouter!.Host,
+                RouterId = _routerContext.CurrentRouter!.Id,
                 LastSyncedAt = DateTime.UtcNow,
                 IsFromCache = false,
                 SystemType = systemType == "Hotspot" ? "Hotspot" : "UserManager"
@@ -184,8 +185,17 @@ public class ProfileService : IProfileService
         try
         {
             await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+
+            // [FIX I-10] فلترة بالـ RouterId (ليس Host) لعزل بيانات كل راوتر بشكل مستقل
+            var routerId = _routerContext.CurrentRouter?.Id;
+            if (routerId == null || routerId == Guid.Empty)
+            {
+                _logger.LogWarning("⚠️ [ProfileService] لا يوجد راوتر نشط لتحميل نسخة الطوارئ.");
+                return new List<Profile>();
+            }
+
             var cached = await db.Profiles
-                .Where(p => p.RouterHost == _routerContext.CurrentRouter!.Host)
+                .Where(p => p.RouterId == routerId)
                 .Where(p => (sourceType == PackageSourceType.Hotspot && p.SystemType == "Hotspot") || 
                             (sourceType == PackageSourceType.UserManager && p.SystemType == "UserManager"))
                 .OrderBy(p => p.Name)
@@ -347,41 +357,110 @@ public class ProfileService : IProfileService
             }
             else if (systemType == "UMv6")
             {
-                // أمر إضافة الباقة — محقق من الترمينال: هذه البارامترات تعمل مع owner=admin
-                var cmd = new MikroTikCommand { Command = "/tool/user-manager/profile/add" };
-                cmd.Parameters.Add("name", name);
-                cmd.Parameters.Add("name-for-users", name);   // الاسم الظاهر في البورتال
-                cmd.Parameters.Add("owner", customer);         // Customer login (مثال: admin)
-                cmd.Parameters.Add("starts-at", "logon");      // ابدأ بعد تسجيل الدخول
-                cmd.Parameters.Add("validity", validity);
-                cmd.Parameters.Add("price", price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
-                cmd.Parameters.Add("override-shared-users", sharedUsers);
+                // [FIX I-02] Compensation Pattern: نحفظ ID كل خطوة ناجحة ونحذفها عند الفشل (Rollback)
+                string? createdProfileId    = null;
+                string? createdLimitationId = null;
 
-                foreach (var p in cmd.Parameters)
-                    logSb.AppendLine($"  Param: {p.Key} = {p.Value}");
-
-                await _commandExecutor.ExecuteAsync(cmd, cancellationToken);
-
-                // إضافة الحدود إذا كانت محددة
-                if (!string.IsNullOrEmpty(transfer) || !string.IsNullOrEmpty(uptime) || !string.IsNullOrEmpty(rateLimit))
+                try
                 {
-                    var limCmd = new MikroTikCommand { Command = "/tool/user-manager/profile/limitation/add" };
-                    limCmd.Parameters.Add("name", name);
-                    limCmd.Parameters.Add("owner", customer);
-                    if (!string.IsNullOrEmpty(transfer)) limCmd.Parameters.Add("transfer-limit", transfer);
-                    if (!string.IsNullOrEmpty(uptime)) limCmd.Parameters.Add("uptime-limit", uptime);
-                    if (!string.IsNullOrEmpty(rateLimit))
-                    {
-                        limCmd.Parameters.Add("rate-limit-rx", rateLimit);
-                        limCmd.Parameters.Add("rate-limit-tx", rateLimit);
-                    }
-                    await _commandExecutor.ExecuteAsync(limCmd, cancellationToken);
+                    // الخطوة 1: إنشاء الباقة
+                    var profileCmd = new MikroTikCommand { Command = "/tool/user-manager/profile/add" };
+                    profileCmd.Parameters.Add("name",              name);
+                    profileCmd.Parameters.Add("name-for-users",    name);
+                    profileCmd.Parameters.Add("owner",             customer);
+                    profileCmd.Parameters.Add("starts-at",        "logon");
+                    profileCmd.Parameters.Add("validity",          validity);
+                    profileCmd.Parameters.Add("price",             price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
+                    profileCmd.Parameters.Add("override-shared-users", sharedUsers);
 
-                    // ربط الباقة بالليميت (Profile Limitation Link)
-                    var linkCmd = new MikroTikCommand { Command = "/tool/user-manager/profile/profile-limitation/add" };
-                    linkCmd.Parameters.Add("profile", name);
-                    linkCmd.Parameters.Add("limitation", name);
-                    await _commandExecutor.ExecuteAsync(linkCmd, cancellationToken);
+                    foreach (var p in profileCmd.Parameters)
+                        logSb.AppendLine($"  Param: {p.Key} = {p.Value}");
+
+                    var profileResp = await _commandExecutor.ExecuteAsync(profileCmd, cancellationToken);
+                    if (!profileResp.Success)
+                        throw new Exception($"فشل إنشاء الباقة: {profileResp.Message}");
+
+                    // جلب ID الباقة للاستخدام في Rollback عند الحاجة
+                    try
+                    {
+                        var printProfileCmd = new MikroTikCommand { Command = "/tool/user-manager/profile/print" };
+                        printProfileCmd.Parameters.Add("name", name);
+                        var profileList = await _commandExecutor.ExecuteAsync(printProfileCmd, cancellationToken);
+                        createdProfileId = profileList.RawData.FirstOrDefault()?.GetValueOrDefault(".id");
+                    }
+                    catch { /* non-fatal — Rollback سيعتمد على Remove by name */ }
+
+                    // الخطوة 2: إضافة الحدود (فقط إذا توفرت حدود)
+                    if (!string.IsNullOrEmpty(transfer) || !string.IsNullOrEmpty(uptime) || !string.IsNullOrEmpty(rateLimit))
+                    {
+                        var limCmd = new MikroTikCommand { Command = "/tool/user-manager/profile/limitation/add" };
+                        limCmd.Parameters.Add("name",  name);
+                        limCmd.Parameters.Add("owner", customer);
+                        if (!string.IsNullOrEmpty(transfer))  limCmd.Parameters.Add("transfer-limit", transfer);
+                        if (!string.IsNullOrEmpty(uptime))    limCmd.Parameters.Add("uptime-limit",   uptime);
+                        if (!string.IsNullOrEmpty(rateLimit))
+                        {
+                            limCmd.Parameters.Add("rate-limit-rx", rateLimit);
+                            limCmd.Parameters.Add("rate-limit-tx", rateLimit);
+                        }
+
+                        var limResp = await _commandExecutor.ExecuteAsync(limCmd, cancellationToken);
+                        if (!limResp.Success)
+                            throw new Exception($"فشل إنشاء الليميت: {limResp.Message}");
+
+                        // جلب ID الليميت للاستخدام في Rollback
+                        try
+                        {
+                            var printLimCmd = new MikroTikCommand { Command = "/tool/user-manager/profile/limitation/print" };
+                            printLimCmd.Parameters.Add("name", name);
+                            var limList = await _commandExecutor.ExecuteAsync(printLimCmd, cancellationToken);
+                            createdLimitationId = limList.RawData.FirstOrDefault()?.GetValueOrDefault(".id");
+                        }
+                        catch { /* non-fatal */ }
+
+                        // الخطوة 3: ربط الباقة بالليميت
+                        var linkCmd = new MikroTikCommand { Command = "/tool/user-manager/profile/profile-limitation/add" };
+                        linkCmd.Parameters.Add("profile",     name);
+                        linkCmd.Parameters.Add("limitation",  name);
+
+                        var linkResp = await _commandExecutor.ExecuteAsync(linkCmd, cancellationToken);
+                        if (!linkResp.Success)
+                            throw new Exception($"فشل ربط الباقة بالليميت: {linkResp.Message}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // [ROLLBACK] حذف ما تم إنشاؤه بشكل جزئي لتجنب باقة منقوصة في RouterOS
+                    _logger.LogWarning("⚠️ [ProfileService] فشل إنشاء الباقة '{Name}'. تنفيذ Rollback...", name);
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(createdLimitationId))
+                        {
+                            var rmLim = new MikroTikCommand { Command = "/tool/user-manager/profile/limitation/remove" };
+                            rmLim.Parameters.Add(".id", createdLimitationId);
+                            await _commandExecutor.ExecuteAsync(rmLim, CancellationToken.None);
+                            _logger.LogInformation("✔ [Rollback] حذف limitation '{Id}'", createdLimitationId);
+                        }
+                    }
+                    catch (Exception rbLimEx)
+                    {
+                        _logger.LogError("❌ [Rollback] فشل حذف limitation: {Err}", rbLimEx.Message);
+                    }
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(createdProfileId))
+                        {
+                            var rmProfile = new MikroTikCommand { Command = "/tool/user-manager/profile/remove" };
+                            rmProfile.Parameters.Add(".id", createdProfileId);
+                            await _commandExecutor.ExecuteAsync(rmProfile, CancellationToken.None);
+                            _logger.LogInformation("✔ [Rollback] حذف profile '{Id}'", createdProfileId);
+                        }
+                    }
+                    catch (Exception rbProfEx)
+                    {
+                        _logger.LogError("❌ [Rollback] فشل حذف profile: {Err}", rbProfEx.Message);
+                    }
+                    throw; // إعادة رمي الخطأ للـ ViewModel
                 }
             }
             else // Hotspot

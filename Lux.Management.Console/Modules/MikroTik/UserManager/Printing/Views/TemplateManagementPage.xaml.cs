@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -189,83 +189,46 @@ namespace Lux.Management.Console.Modules.MikroTik.UserManager.Printing.Views
             }
         }
 
-        // ─── Drag & Drop: Direct Canvas manipulation (no ViewModel refresh during drag) ──
-
-        /// <summary>
-        /// During drag: directly move the Thumb on the Canvas.
-        /// </summary>
-        private void Thumb_DragDelta(object sender, DragDeltaEventArgs e)
+        // ─── Direct Image Manipulation — تحديث موضع العنصر المليمكري فورياً ──────
+        private void CardPreviewImage_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            if (sender is not Thumb thumb) return;
-            if (DataContext is not TemplateManagementViewModel vm || vm.SelectedTemplate == null) return;
-
-            string propName = thumb.Tag as string ?? string.Empty;
-            if (string.IsNullOrEmpty(propName)) return;
-
-            var xProp = typeof(TemplateConfig).GetProperty(propName + "X");
-            var yProp = typeof(TemplateConfig).GetProperty(propName + "Y");
-            if (xProp == null || yProp == null) return;
-
-            // Read the CURRENT position from ViewModel (which is what Canvas.Left is bound to).
-            // Do NOT use Canvas.GetLeft — it returns the Binding value (old position) not SetCurrentValue.
-            double currentMmX = System.Convert.ToDouble(xProp.GetValue(vm.SelectedTemplate));
-            double currentMmY = System.Convert.ToDouble(yProp.GetValue(vm.SelectedTemplate));
-
-            double currentLeft = currentMmX * ScaleFactor;
-            double currentTop  = currentMmY * ScaleFactor;
-
-            double newLeft = currentLeft + e.HorizontalChange;
-            double newTop  = currentTop  + e.VerticalChange;
-
-            // Calculate the actual single card width and height (matching CardSizeConverter calculation)
-            var t = vm.SelectedTemplate;
-            double cardW = t.Columns > 0 ? (210.0 - t.MarginX * t.Columns) / t.Columns * ScaleFactor : 70.0 * ScaleFactor;
-            double cardH = t.Rows    > 0 ? (297.0 - t.MarginY * t.Rows)    / t.Rows    * ScaleFactor : 40.0 * ScaleFactor;
-
-
-
-            // Clamp positions to the card boundaries (prevent disappearing)
-            newLeft = System.Math.Max(0, System.Math.Min(newLeft, cardW));
-            newTop  = System.Math.Max(0, System.Math.Min(newTop,  cardH));
-
-            // Write directly to ViewModel — INotifyPropertyChanged updates Canvas.Left via Binding.
-            // NO SetCurrentValue: using the Binding as the single source of truth avoids all conflicts.
-            xProp.SetValue(vm.SelectedTemplate, (float)(newLeft / ScaleFactor));
-            yProp.SetValue(vm.SelectedTemplate, (float)(newTop  / ScaleFactor));
-
-            // Update position display
-            _activeElement = propName;
-            if (TxtActiveX != null) TxtActiveX.Text = (newLeft / ScaleFactor).ToString("F1");
-            if (TxtActiveY != null) TxtActiveY.Text = (newTop  / ScaleFactor).ToString("F1");
+            UpdateElementPositionFromMouse(sender, e.GetPosition((IInputElement)sender));
         }
 
-        /// <summary>
-        /// When drag ends: round and persist the final position.
-        /// </summary>
-        private void Thumb_DragCompleted(object sender, DragCompletedEventArgs e)
+        private void CardPreviewImage_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            if (sender is not Thumb thumb) return;
+            if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed)
+            {
+                UpdateElementPositionFromMouse(sender, e.GetPosition((IInputElement)sender));
+            }
+        }
+
+        private void UpdateElementPositionFromMouse(object sender, Point pos)
+        {
+            if (sender is not FrameworkElement el) return;
             if (DataContext is not TemplateManagementViewModel vm || vm.SelectedTemplate == null) return;
 
-            string? propName = thumb.Tag as string;
-            if (string.IsNullOrEmpty(propName)) return;
+            double widthPx = el.ActualWidth;
+            double heightPx = el.ActualHeight;
+            if (widthPx <= 0 || heightPx <= 0) return;
 
-            var xProp = typeof(TemplateConfig).GetProperty(propName + "X");
-            var yProp = typeof(TemplateConfig).GetProperty(propName + "Y");
-            if (xProp == null || yProp == null) return;
+            var t = vm.SelectedTemplate;
+            double cols = t.Columns > 0 ? t.Columns : 3;
+            double rows = t.Rows > 0 ? t.Rows : 7;
+            double cardWMm = (210.0 - t.MarginX * cols) / cols;
+            double cardHMm = (297.0 - t.MarginY * rows) / rows;
 
-            // Read from ViewModel (already updated during DragDelta), round for storage.
-            double mmX = System.Convert.ToDouble(xProp.GetValue(vm.SelectedTemplate));
-            double mmY = System.Convert.ToDouble(yProp.GetValue(vm.SelectedTemplate));
+            float mmX = (float)System.Math.Round(System.Math.Clamp((pos.X / widthPx) * cardWMm, 0, cardWMm), 1);
+            float mmY = (float)System.Math.Round(System.Math.Clamp((pos.Y / heightPx) * cardHMm, 0, cardHMm), 1);
 
-            float roundedX = (float)System.Math.Round(mmX, 1);
-            float roundedY = (float)System.Math.Round(mmY, 1);
-
-            xProp.SetValue(vm.SelectedTemplate, roundedX);
-            yProp.SetValue(vm.SelectedTemplate, roundedY);
-
-            if (TxtActiveX != null) TxtActiveX.Text = roundedX.ToString("F1");
-            if (TxtActiveY != null) TxtActiveY.Text = roundedY.ToString("F1");
+            var xProp = typeof(TemplateConfig).GetProperty(_activeElement + "X");
+            var yProp = typeof(TemplateConfig).GetProperty(_activeElement + "Y");
+            if (xProp != null && yProp != null)
+            {
+                xProp.SetValue(t, mmX);
+                yProp.SetValue(t, mmY);
+                UpdateActivePositionDisplay();
+            }
         }
     }
 }

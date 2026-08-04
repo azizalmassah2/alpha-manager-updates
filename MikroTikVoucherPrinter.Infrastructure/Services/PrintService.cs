@@ -37,7 +37,11 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
             _dbFactory = dbFactory;
         }
 
-        public async Task<Result<byte[]>> GeneratePdfAsync(List<VoucherDto> vouchers, PrintSettingsDto settings, CancellationToken cancellationToken = default)
+        public async Task<Result<byte[]>> GeneratePdfAsync(
+            List<VoucherDto> vouchers,
+            PrintSettingsDto settings,
+            IProgress<(int currentPage, int totalPages, string statusText)>? progress = null,
+            CancellationToken cancellationToken = default)
         {
             if (vouchers == null || vouchers.Count == 0)
                 return Result<byte[]>.Failure("لا يوجد كروت للطباعة.", ErrorType.Validation);
@@ -76,7 +80,8 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                 return await Task.Run(() =>
                 {
                     using var ms = new MemoryStream();
-                    using var writer = new PdfWriter(ms);
+                    var writer = new PdfWriter(ms);
+                    writer.SetCloseStream(false);
                     using var pdf = new PdfDocument(writer);
 
                     if (customConfig != null)
@@ -130,12 +135,14 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
 
                     if (template != null)
                     {
-                        template.LayoutDocument(document, vouchers, settings, arabicFont);
+                        template.LayoutDocument(document, vouchers, settings, arabicFont, progress);
                     }
 
                     document.Close();
+                    writer.Close();
 
-                    return Result<byte[]>.Success(ms.ToArray());
+                    byte[] pdfBytes = ms.ToArray();
+                    return Result<byte[]>.Success(pdfBytes);
                     
                 }, cancellationToken);
             }

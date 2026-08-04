@@ -19,4 +19,5 @@ public interface IActiveRouterContext
     Task ConnectAsync(Router router, CancellationToken cancellationToken = default);
     Task DisconnectAsync(CancellationToken cancellationToken = default);
     Task SwitchRouterAsync(Router router, CancellationToken cancellationToken = default);
+    void MarkDisconnected(string reason);
 }

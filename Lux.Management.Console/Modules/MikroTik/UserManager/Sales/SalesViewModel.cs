@@ -139,8 +139,20 @@ public partial class SalesViewModel : ViewModelBase, IActivatable
         {
             Interval = TimeSpan.FromSeconds(10)
         };
-        _relativeSyncTimer.Tick += (s, e) => UpdateRelativeLastSyncText();
-        _relativeSyncTimer.Start();
+        // الاشتراك في حدث تغيير الراوتر النشط من الشريط العلوي
+        _activeRouterContext.ActiveRouterChanged += OnActiveRouterChanged;
+    }
+
+    private async void OnActiveRouterChanged(object? sender, EventArgs e)
+    {
+        await _dispatcherService.InvokeAsync(async () =>
+        {
+            RouterName = _activeRouterContext.CurrentRouter?.DisplayName ?? "لا يوجد راوتر نشط";
+            IsRouterConnected = _activeRouterContext.CurrentRouter != null;
+            _lastLoadedActivated = null;
+            _lastLoadedId = null;
+            await RefreshCurrentQueryAsync();
+        });
     }
 
     public Task ActivateAsync() => InitializeAsync();
@@ -217,12 +229,13 @@ public partial class SalesViewModel : ViewModelBase, IActivatable
                 return;
             }
 
-            // 1. مزامنة قاعدة البيانات من الراوتر إذا كانت غير موجودة أو تم طلب التحديث يدوياً
+            // 1. استخدام قاعدة البيانات المستوردة مسبقاً (الموجودة محلياً)
             var dbPath = _backgroundImportManager.GetCachedCleanDbPath(routerId.Value);
 
-            if (string.IsNullOrEmpty(dbPath) || !File.Exists(dbPath) || _forceDownload)
+            // التنزيل والمزامنة من الراوتر تتم فقط عند الضغط الصريح على زر "تحديث البيانات" (_forceDownload = true)
+            if (_forceDownload)
             {
-                ShowStatusBanner("جاري تحميل قاعدة مبيعات User Manager من الراوتر...");
+                ShowStatusBanner("جاري مزامنة وتحديث قاعدة بيانات User Manager من الراوتر...");
                 try
                 {
                     await Task.Run(async () =>
@@ -233,21 +246,24 @@ public partial class SalesViewModel : ViewModelBase, IActivatable
                 }
                 catch (Exception syncEx)
                 {
-                    _logger.LogWarning(syncEx, "⚠️ فشل تحميل قاعدة البيانات من الراوتر. محاولة استخدام آخر كاش متاح...");
+                    _logger.LogWarning(syncEx, "⚠️ فشل تحديث قاعدة البيانات من الراوتر. سيتم استخدام النسخة المحفوظة محلياً.");
                 }
             }
 
-            if (string.IsNullOrEmpty(dbPath) || !File.Exists(dbPath))
+            bool isUsingLocalFallback = string.IsNullOrEmpty(dbPath) || !File.Exists(dbPath);
+            if (isUsingLocalFallback)
             {
-                ShowStatusBanner("⚠️ لم يتم العثور على قاعدة بيانات الراوتر. الرجاء الضغط على 'تحديث البيانات' للمزامنة.");
-                await _dispatcherService.InvokeAsync(SalesRecords.Clear);
-                GlobalCount = 0;
-                return;
+                ShowStatusBanner("عرض مبيعات الراوتر (البيانات المحلية)");
+            }
+            else
+            {
+                HideStatusBanner();
             }
 
             var parameters = new SalesQueryParameters
             {
-                RouterDbPath = dbPath,
+                RouterId = routerId.Value,
+                RouterDbPath = dbPath ?? string.Empty,
                 FilterDate = SelectedDate.HasValue ? DateOnly.FromDateTime(SelectedDate.Value) : null,
                 SearchText = SearchText,
                 FilterStatus = FilterStatus,

@@ -41,16 +41,17 @@ public class SyncService : ISyncService
     public async Task<SyncMetrics> ProcessPendingAsync(IProgress<(int success, int failed, int total)>? progress, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("ًں”„ [Sync Engine] ط¬ط§ط±ظٹ ط§ظ„ط¨ط­ط« ط¹ظ† ظƒط±ظˆطھ ظ…ط¹ظ„ظ‚ط© (Pending)...");
+        _logger.LogInformation("🔄 [Sync Engine] جاري البحث عن كروت معلقة (Pending)...");
         var pendingVouchers = await _voucherRepo.GetPendingSyncAsync(cancellationToken);
         return await ProcessVouchersListAsync(pendingVouchers, progress, cancellationToken);
     }
 
     public async Task<SyncMetrics> ProcessBatchAsync(Guid batchId, IProgress<(int success, int failed, int total)>? progress, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("ًں”„ [Sync Engine] ط¬ط§ط±ظٹ ط§ظ„ط¨ط­ط« ط¹ظ† ط§ظ„ظƒط±ظˆطھ ظ„ظ„ط¯ظپط¹ط© {BatchId}...", batchId);
-        // ظ†ط³طھط®ط¯ظ… ظ…ط³طھظˆط¯ط¹ ط§ظ„ظƒط±ظˆطھ ظ„ط¬ظ„ط¨ ط§ظ„ط¯ظپط¹ط©طŒ ظˆظ„ظƒظ† ط³ظ†طµظپظٹ ط§ظ„ظƒط±ظˆطھ ط§ظ„ظ…ط¹ظ„ظ‚ط© ظپظ‚ط· (ظ‚ظٹط¯ ط§ظ„ط§ظ†طھط¸ط§ط±)
-        var allPending = await _voucherRepo.GetPendingSyncAsync(cancellationToken);
-        var batchVouchers = allPending.Where(v => v.BatchId == batchId).ToList();
+        _logger.LogInformation("🔄 [Sync Engine] جاري البحث عن الكروت للدفعة {BatchId}...", batchId);
+        // ✅ استعلام مباشر — لا يجلب كل الكروت في الذاكرة
+        var batchVouchers = await _voucherRepo.GetPendingByBatchIdAsync(batchId, cancellationToken);
+        _logger.LogInformation("📋 [Sync Engine] وُجد {Count} كرت Pending للدفعة {BatchId}", batchVouchers.Count, batchId);
         return await ProcessVouchersListAsync(batchVouchers, progress, cancellationToken);
     }
 
@@ -121,7 +122,7 @@ public class SyncService : ISyncService
                     if (result.IsSuccess)
                     {
                         voucher.MarkAsSynced(result.Value.Id);
-                        metrics.IncrementSuccess();
+                        metrics.IncrementSuccess(voucher.Id);
                     }
                     else
                     {
@@ -158,13 +159,18 @@ public class SyncService : ISyncService
     public async Task<SyncMetrics> RetryFailedAsync(CancellationToken cancellationToken = default)
     {
         var metrics = new SyncMetrics();
-        _logger.LogInformation("âڈ³ [Sync Engine] ط§ظ„ط¨ط­ط« ط¹ظ† ط§ظ„ظƒط±ظˆطھ ط§ظ„ظپط§ط´ظ„ط© ظ„ظ…ط¹ط§ظ„ط¬طھظ‡ط§...");
+        _logger.LogInformation("⌳ [Sync Engine] البحث عن الكروت الفاشلة لمعالجتها...");
         var failedVouchers = await _voucherRepo.GetFailedSyncAsync(cancellationToken);
 
-        // ظپظ„طھط±ط© ط§ظ„ط°ظƒط§ط،: ط§ط³طھط¨ط¹ط§ط¯ ط§ظ„ط£ط®ط·ط§ط، ط§ظ„ظ…ظ†ط·ظ‚ظٹط© ظˆط¥ط¨ظ‚ط§ط، ط£ط®ط·ط§ط، ط§ظ„ط´ط¨ظƒط© ظˆط§ظ„ظ€ External Services ظپظ‚ط·
+        // فلترة الذكاء:         // إعادة محاولة رفع الكروت الفاشلة عند الانقطاع أو أخطاء الخدمة
         var toRetry = failedVouchers
-            .Where(v => v.SyncError != null && v.SyncError.Contains($"[{ErrorType.ExternalService}]"))
-            .Take(100) // ط­ط¯ ط£ظ‚طµظ‰ ظ„ظ„ط¯ظپط¹ط©
+            .Where(v => string.IsNullOrEmpty(v.SyncError) 
+                     || v.SyncError.Contains($"[{ErrorType.ExternalService}]")
+                     || v.SyncError.Contains("انقطع الاتصال")
+                     || v.SyncError.Contains("Network")
+                     || v.SyncError.Contains("Socket")
+                     || v.SyncError.Contains("Failed"))
+            .Take(500) // حد أقصى مناسب للدفعة
             .ToList();
 
         int skipped = failedVouchers.Count - toRetry.Count;
@@ -185,8 +191,50 @@ public class SyncService : ISyncService
             await _genericVoucherRepo.UpdateAsync(voucher, cancellationToken);
         }
 
-        // ط¥طµظ„ط§ط­: ظƒط§ظ†طھ additionalMetrics طھظڈط­ط³ط¨ ط«ظ… طھظڈطھط¬ط§ظ‡ظ„ â€” ط§ظ„ط¢ظ† ظٹطھظ… ط¯ظ…ط¬ظ‡ط§ ظ…ط¹ metrics ط§ظ„ط£طµظ„ظٹط©
         var additionalMetrics = await ProcessPendingAsync(cancellationToken);
         return metrics.Merge(additionalMetrics);
+    }
+
+    // ─── Batch-level Operations (جديد) ─────────────────────────────────────────
+
+    /// <inheritdoc />
+    public async Task<SyncMetrics> RetryBatchAsync(
+        Guid batchId,
+        IProgress<(int success, int failed, int total)>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("🔁 [Sync Engine] إعادة محاولة الكروت الفاشلة للدفعة {BatchId}...", batchId);
+
+        // جلب الفاشلة لهذه الدفعة فقط — استعلام مباشر
+        var failedVouchers = await _voucherRepo.GetFailedByBatchIdAsync(batchId, cancellationToken);
+
+        if (!failedVouchers.Any())
+        {
+            _logger.LogInformation("✅ [Sync Engine] لا كروت فاشلة في الدفعة {BatchId}.", batchId);
+            return new SyncMetrics();
+        }
+
+        _logger.LogInformation("📋 [Sync Engine] {Count} كرت فاشل للإعادة في الدفعة {BatchId}", failedVouchers.Count, batchId);
+
+        // إعادة وضع الكروت على Pending
+        foreach (var voucher in failedVouchers)
+        {
+            voucher.MarkAsPending();
+            await _genericVoucherRepo.UpdateAsync(voucher, cancellationToken);
+        }
+
+        // معالجة الدفعة مباشرة بالـ BatchId
+        return await ProcessBatchAsync(batchId, progress, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<SyncMetrics> ResumeBatchAsync(
+        Guid batchId,
+        IProgress<(int success, int failed, int total)>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("▶ [Sync Engine] استكمال المزامنة للدفعة {BatchId}...", batchId);
+        // يكمل من آخر نقطة — يعالج Pending فقط (لا يغير الفاشلة)
+        return await ProcessBatchAsync(batchId, progress, cancellationToken);
     }
 }

@@ -47,9 +47,24 @@
                 <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}" DisplayMemberPath="DisplayName"
                           Style="{StaticResource ComboBoxExtend}" Height="32" Margin="0,0,0,12"/>
 
-                <!-- Count Selection -->
-                <TextBlock Text="الكمية:" FontSize="11.5" FontWeight="SemiBold" Margin="0,0,0,5"/>
-                <TextBox Text="{Binding Count, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextBoxExtend}" Height="32" Margin="0,0,0,12"/>
+                <!-- Count Selection & Page Calculator Badge -->
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="الكمية (عدد الكروت):" FontSize="11.5" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                        <TextBox Text="{Binding Count, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextBoxExtend}" Height="32"/>
+                    </StackPanel>
+                    <Border Grid.Column="1" Background="#10B98115" BorderBrush="#10B981" BorderThickness="1" CornerRadius="6" Padding="10,0" Margin="10,18,0,0" Height="32">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="📄 " FontSize="12"/>
+                            <TextBlock Text="{Binding CalculatedPagesCount}" FontWeight="Bold" FontSize="13" Foreground="#FF10B981"/>
+                            <TextBlock Text=" صفحة A4" FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}" Margin="3,0,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
 
                 <!-- Agent Selection -->
                 <TextBlock Text="نقطة البيع (الوكيل) الاختيارية:" FontSize="11.5" FontWeight="SemiBold" Margin="0,0,0,5"/>
@@ -71,6 +86,19 @@
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
+
+                <!-- Save Path Selection -->
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="مسار حفظ ملف PDF الطباعة (اختياري):" FontSize="11.5" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                        <TextBox Text="{Binding CustomSavePath}" Style="{StaticResource TextBoxExtend}" Height="32" hc:InfoElement.Placeholder="تلقائي (الملفات المؤقتة)"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Command="{Binding BrowseCustomSavePathCommand}" Style="{StaticResource ButtonDefault}" Content="استعراض..." Height="32" Margin="8,18,0,0"/>
+                </Grid>
             </StackPanel>
 
             <!-- Column 2: Identity & Cryptographic parameters -->

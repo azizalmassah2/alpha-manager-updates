@@ -294,7 +294,18 @@ public partial class ProfileManagementViewModel : ViewModelBase, IActivatable
             _selectedSource = PackageSourceType.UserManager;
         }
 
+        // [FIX Router Switch] تحديث تلقائي للباقات عند تغيير الاتصال بالراوتر من الشريط العلوي
+        _activeRouterContext.ActiveRouterChanged += OnActiveRouterChanged;
+
         _ = LoadProfilesAsync(CancellationToken.None);
+    }
+
+    private void OnActiveRouterChanged(object? sender, EventArgs e)
+    {
+        System.Windows.Application.Current?.Dispatcher.InvokeAsync(async () =>
+        {
+            await RefreshProfilesAsync(CancellationToken.None);
+        });
     }
 
     // ── Load ───────────────────────────────────────────────────────────────────

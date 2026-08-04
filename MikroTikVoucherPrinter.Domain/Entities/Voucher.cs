@@ -53,6 +53,7 @@ public class Voucher : BaseEntity
     public string? Comment { get; set; }
 
     public bool IsDisabled { get; set; }
+    public bool IsFavorite { get; set; }
     public long BytesUsed { get; set; }
     public long DownloadUsedBytes { get; set; }
     public long UploadUsedBytes { get; set; }

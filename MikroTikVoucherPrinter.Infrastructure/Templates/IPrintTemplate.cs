@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using iText.Kernel.Font;
 using iText.Layout;
@@ -8,5 +9,10 @@ namespace MikroTikVoucherPrinter.Infrastructure.Templates;
 public interface IPrintTemplate
 {
     string TemplateName { get; }
-    void LayoutDocument(Document document, List<VoucherDto> vouchers, PrintSettingsDto settings, PdfFont arabicFont);
+    void LayoutDocument(
+        Document document,
+        List<VoucherDto> vouchers,
+        PrintSettingsDto settings,
+        PdfFont arabicFont,
+        IProgress<(int currentPage, int totalPages, string statusText)>? progress = null);
 }

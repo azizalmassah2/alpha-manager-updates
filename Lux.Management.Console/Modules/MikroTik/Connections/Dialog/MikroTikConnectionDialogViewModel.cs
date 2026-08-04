@@ -22,6 +22,7 @@ public partial class MikroTikConnectionDialogViewModel : ObservableObject
     private readonly IRouterRepository _routerRepository;
     private readonly ISecureStorageService _secureStorageService;
     private readonly IRouterOsProvider _routerOsProvider;
+    private readonly System.Threading.CancellationTokenSource _cts = new();
 
     public MikroTikConnectionDialogViewModel(
         IMikroTikDiscoveryService discoveryService,
@@ -157,7 +158,12 @@ public partial class MikroTikConnectionDialogViewModel : ObservableObject
         ErrorMessage = string.Empty;
         try
         {
-        var devices = await _discoveryService.DiscoverDevicesAsync();
+            var devices = await _discoveryService.DiscoverDevicesAsync(_cts.Token);
+            var validDevices = devices.Where(d => !string.IsNullOrWhiteSpace(d.MacAddress) && 
+                                                   !d.MacAddress.Equals("Unknown", StringComparison.OrdinalIgnoreCase) && 
+                                                   !d.MacAddress.Equals("—", StringComparison.OrdinalIgnoreCase) && 
+                                                   d.MacAddress != "00:00:00:00:00:00" && 
+                                                   d.MacAddress != "00-00-00-00-00-00").ToList();
         
         System.Console.WriteLine($"[DIAGNOSTIC] Selected Thread ID before Dispatcher: {Environment.CurrentManagedThreadId}");
 
@@ -167,7 +173,7 @@ public partial class MikroTikConnectionDialogViewModel : ObservableObject
             System.Console.WriteLine($"[DIAGNOSTIC] DiscoveredDevices Count Before Add = {DiscoveredDevices.Count}");
             
             DiscoveredDevices.Clear();
-            foreach (var device in devices)
+            foreach (var device in validDevices)
             {
                 DiscoveredDevices.Add(device);
                 System.Console.WriteLine($"[DIAGNOSTIC] Device Added: {device.IpAddress}");
@@ -198,6 +204,8 @@ public partial class MikroTikConnectionDialogViewModel : ObservableObject
         IsBusy = true;
         try
         {
+            try { if (!_cts.IsCancellationRequested) _cts.Cancel(); } catch { }
+            IsDiscovering = false;
             await _activeRouterContext.SwitchRouterAsync(row.Router);
             await LoadSavedRoutersAsync(); // refresh active state
             CloseAction?.Invoke();
@@ -314,6 +322,21 @@ public partial class MikroTikConnectionDialogViewModel : ObservableObject
                 }
             }
             catch { /* identity fetch non-fatal, use IP fallback */ }
+
+            // ── [FIX I-01] Fetch SoftwareId — معرّف فريد عالمياً لكل جهاز RouterOS ──
+            string? softwareId = null;
+            try
+            {
+                var licResult = await _routerOsProvider.ExecuteAsync(
+                    new MikroTikCommand { Command = "/system/license/print" });
+                if (licResult.IsSuccess && licResult.Value?.RawData?.Count > 0)
+                {
+                    var d = licResult.Value.RawData[0];
+                    if (d.TryGetValue("software-id", out var swId) && !string.IsNullOrWhiteSpace(swId))
+                        softwareId = swId.Trim();
+                }
+            }
+            catch { /* non-fatal — fallback to Host+Port lookup */ }
             
             // Also try MNDP discovered identity as fallback
             if (identityName == Host)
@@ -327,29 +350,47 @@ public partial class MikroTikConnectionDialogViewModel : ObservableObject
             // ── Save or update Router in DB ──
             StatusMessage = "جاري الحفظ…";
             var existingList = await _routerRepository.GetAllAsync();
-            var existing = existingList.FirstOrDefault(r =>
-                r.Host.Equals(Host, StringComparison.OrdinalIgnoreCase) && r.Port == portNum);
+            Router? existing;
+
+            // [FIX I-01] البحث بالـ SoftwareId أولاً لمنع تصادم راوترين بنفس IP
+            if (!string.IsNullOrEmpty(softwareId))
+            {
+                existing = existingList.FirstOrDefault(r => r.SoftwareId == softwareId)
+                        ?? existingList.FirstOrDefault(r =>
+                               r.Host.Equals(Host, StringComparison.OrdinalIgnoreCase)
+                               && r.Port == portNum
+                               && string.IsNullOrEmpty(r.SoftwareId));
+            }
+            else
+            {
+                existing = existingList.FirstOrDefault(r =>
+                    r.Host.Equals(Host, StringComparison.OrdinalIgnoreCase) && r.Port == portNum);
+            }
 
             Router router;
             if (existing != null)
             {
-                // Update existing entry
-                existing.DisplayName = identityName;
-                existing.Username = Username;
+                existing.DisplayName    = identityName;
+                existing.Host           = Host;
+                existing.Port           = portNum;
+                existing.Username       = Username;
                 existing.EncryptedPassword = _secureStorageService.Encrypt(Password);
+                existing.SoftwareId     = softwareId ?? existing.SoftwareId;
+                existing.RouterIdentity = identityName;
                 await _routerRepository.UpdateAsync(existing);
                 router = existing;
             }
             else
             {
-                // Create new entry
                 router = new Router
                 {
-                    DisplayName = identityName,
-                    Host = Host,
-                    Port = portNum,
-                    Username = Username,
-                    EncryptedPassword = _secureStorageService.Encrypt(Password)
+                    DisplayName     = identityName,
+                    Host            = Host,
+                    Port            = portNum,
+                    Username        = Username,
+                    EncryptedPassword = _secureStorageService.Encrypt(Password),
+                    SoftwareId      = softwareId,
+                    RouterIdentity  = identityName,
                 };
                 await _routerRepository.AddAsync(router);
             }

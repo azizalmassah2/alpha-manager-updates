@@ -23,7 +23,8 @@ namespace Lux.Management.Console.Modules.MikroTik.UserManager.Vouchers.Views
             IActiveRouterContext activeRouterContext,
             IShellState shellState,
             ILogger logger,
-            Lux.Management.Console.Core.Security.Authorization.IFeatureAuthorizationService featureAuthorizationService)
+            Lux.Management.Console.Core.Security.Authorization.IFeatureAuthorizationService featureAuthorizationService,
+            IProfileService profileService)
         {
             InitializeComponent();
             
@@ -36,7 +37,8 @@ namespace Lux.Management.Console.Modules.MikroTik.UserManager.Vouchers.Views
                 activeRouterContext,
                 shellState,
                 logger,
-                featureAuthorizationService);
+                featureAuthorizationService,
+                profileService);
 
             DataContext = _viewModel;
             _viewModel.RequestClose += (success) =>

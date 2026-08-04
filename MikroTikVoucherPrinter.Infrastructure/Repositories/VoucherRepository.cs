@@ -12,8 +12,11 @@ namespace MikroTikVoucherPrinter.Infrastructure.Repositories;
 
 public class VoucherRepository : GenericRepository<Voucher>, IVoucherRepository
 {
-    public VoucherRepository(IDbContextFactory<LuxCardDbContext> dbFactory) : base(dbFactory)
+    private readonly IActiveRouterContext _activeRouterContext;
+
+    public VoucherRepository(IDbContextFactory<LuxCardDbContext> dbFactory, IActiveRouterContext activeRouterContext) : base(dbFactory)
     {
+        _activeRouterContext = activeRouterContext;
     }
 
     public async Task<Voucher?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
@@ -28,11 +31,19 @@ public class VoucherRepository : GenericRepository<Voucher>, IVoucherRepository
     public async Task<IReadOnlyList<Voucher>> GetPendingSyncAsync(CancellationToken cancellationToken = default)
     {
         await using var db = await DbFactory.CreateDbContextAsync(cancellationToken);
-        var activeRouterId = db.CurrentRouterId ?? Guid.Empty;
-        return await db.Vouchers
+        var activeRouterId = _activeRouterContext.CurrentRouterId;
+        
+        var query = db.Vouchers
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .Where(v => v.SyncStatus == SyncStatus.Pending && v.RouterId == activeRouterId)
+            .Where(v => v.SyncStatus == SyncStatus.Pending);
+
+        if (activeRouterId.HasValue && activeRouterId.Value != Guid.Empty)
+        {
+            query = query.Where(v => v.RouterId == activeRouterId.Value);
+        }
+
+        return await query
             .OrderBy(v => v.CreatedAt)
             .ToListAsync(cancellationToken);
     }
@@ -40,11 +51,19 @@ public class VoucherRepository : GenericRepository<Voucher>, IVoucherRepository
     public async Task<IReadOnlyList<Voucher>> GetFailedSyncAsync(CancellationToken cancellationToken = default)
     {
         await using var db = await DbFactory.CreateDbContextAsync(cancellationToken);
-        var activeRouterId = db.CurrentRouterId ?? Guid.Empty;
-        return await db.Vouchers
+        var activeRouterId = _activeRouterContext.CurrentRouterId;
+        
+        var query = db.Vouchers
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .Where(v => v.SyncStatus == SyncStatus.Failed && v.RouterId == activeRouterId)
+            .Where(v => v.SyncStatus == SyncStatus.Failed);
+
+        if (activeRouterId.HasValue && activeRouterId.Value != Guid.Empty)
+        {
+            query = query.Where(v => v.RouterId == activeRouterId.Value);
+        }
+
+        return await query
             .OrderBy(v => v.UpdatedAt)
             .ToListAsync(cancellationToken);
     }
@@ -140,5 +159,44 @@ public class VoucherRepository : GenericRepository<Voucher>, IVoucherRepository
             current = current.InnerException;
         }
         return false;
+    }
+
+    // ─── Batch-level Queries ─────────────────────────────────────────────────────
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Voucher>> GetPendingByBatchIdAsync(Guid batchId, CancellationToken cancellationToken = default)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync(cancellationToken);
+        return await db.Vouchers
+            .IgnoreQueryFilters()
+            .Where(v => v.BatchId == batchId &&
+                        v.SyncStatus == SyncStatus.Pending &&
+                        !v.IsDeleted)
+            .OrderBy(v => v.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Voucher>> GetFailedByBatchIdAsync(Guid batchId, CancellationToken cancellationToken = default)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync(cancellationToken);
+        return await db.Vouchers
+            .IgnoreQueryFilters()
+            .Where(v => v.BatchId == batchId &&
+                        v.SyncStatus == SyncStatus.Failed &&
+                        !v.IsDeleted)
+            .OrderBy(v => v.UpdatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> GetSyncedCountByBatchIdAsync(Guid batchId, CancellationToken cancellationToken = default)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync(cancellationToken);
+        return await db.Vouchers
+            .IgnoreQueryFilters()
+            .CountAsync(v => v.BatchId == batchId &&
+                             v.SyncStatus == SyncStatus.Synced &&
+                             !v.IsDeleted, cancellationToken);
     }
 }

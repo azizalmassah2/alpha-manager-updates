@@ -509,7 +509,7 @@ public partial class VoucherManagementViewModel : BaseViewModel
 
             var settings = new PrintSettingsDto();
             var result = await _printService.GeneratePdfAsync(
-                new System.Collections.Generic.List<VoucherDto>(selected), settings, token);
+                new System.Collections.Generic.List<VoucherDto>(selected), settings, null, token);
 
             if (result.IsSuccess)
             {

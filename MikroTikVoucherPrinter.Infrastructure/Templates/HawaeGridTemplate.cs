@@ -19,7 +19,12 @@ public class HawaeGridTemplate : IPrintTemplate
 {
     public string TemplateName => "HawaeGridDefault";
 
-    public void LayoutDocument(Document document, List<VoucherDto> vouchers, PrintSettingsDto settings, PdfFont arabicFont)
+    public void LayoutDocument(
+        Document document,
+        List<VoucherDto> vouchers,
+        PrintSettingsDto settings,
+        PdfFont arabicFont,
+        IProgress<(int currentPage, int totalPages, string statusText)>? progress = null)
     {
         int cols = settings.CardsPerRow > 0 ? settings.CardsPerRow : 4;
         Table table = new Table(cols).UseAllAvailableWidth().SetHorizontalAlignment(HorizontalAlignment.CENTER);

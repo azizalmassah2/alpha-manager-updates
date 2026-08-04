@@ -11,7 +11,12 @@ public class ThermalTemplate : BaseVoucherTemplate
 {
     public override string TemplateName => "ThermalDefault";
 
-    public override void LayoutDocument(Document document, List<VoucherDto> vouchers, PrintSettingsDto settings, PdfFont arabicFont)
+    public override void LayoutDocument(
+        Document document,
+        List<VoucherDto> vouchers,
+        PrintSettingsDto settings,
+        PdfFont arabicFont,
+        IProgress<(int currentPage, int totalPages, string statusText)>? progress = null)
     {
         // بناء קالب الرول الحراري (صفحة لكل فاتورة/كرت)
         bool isFirst = true;

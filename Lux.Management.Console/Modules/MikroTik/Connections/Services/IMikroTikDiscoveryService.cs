@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Lux.Management.Console.Modules.MikroTik.Connections.Services;
@@ -16,5 +16,5 @@ public class DiscoveredDevice
 
 public interface IMikroTikDiscoveryService
 {
-    Task<IEnumerable<DiscoveredDevice>> DiscoverDevicesAsync();
+    Task<IEnumerable<DiscoveredDevice>> DiscoverDevicesAsync(System.Threading.CancellationToken cancellationToken = default);
 }

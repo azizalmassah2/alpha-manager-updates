@@ -144,31 +144,13 @@ public partial class DashboardViewModel : ViewModelBase
         }
 
         var dbPath = _backgroundImportManager.GetCachedCleanDbPath(router.Id);
-        if (string.IsNullOrEmpty(dbPath) || !File.Exists(dbPath))
-        {
-            TotalDevices = 0;
-            OnlineDevices = 0;
-            OfflineDevices = 0;
-            WarningDevices = 0;
-            CriticalDevices = 0;
-            TotalProjects = 0;
-            ActiveMonitoringSessions = 0;
-            LiveActiveUsers = 0;
-            LiveHosts = 0;
-            _dispatcherService.Invoke(() =>
-            {
-                RecentAlerts.Clear();
-                RecentAlerts.Add(new DashboardAlertDto
-                {
-                    Severity = "تنبيه",
-                    Message = "قاعدة بيانات UserManager غير متوفرة محلياً. يرجى الانتظار للمزامنة التلقائية أو الضغط على تحديث البيانات.",
-                    Timestamp = DateTime.Now
-                });
-            });
-            return;
-        }
+        bool hasUsermanDb = !string.IsNullOrEmpty(dbPath) && File.Exists(dbPath);
 
         var diagnostics = new System.Collections.Generic.List<string>();
+        if (!hasUsermanDb)
+        {
+            diagnostics.Add("قاعدة بيانات UserManager غير متوفرة محلياً (نظام Hotspot/محلي). تم تفعيل نمط العرض الحي.");
+        }
 
         try
         {
@@ -275,38 +257,50 @@ public partial class DashboardViewModel : ViewModelBase
 
             await Task.Run(() =>
             {
-                using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};Mode=ReadOnly;Cache=Shared");
-                conn.Open();
+                int total = 0, online = 0, offline = 0, warning = 0, critical = 0, projects = 0, sessions = 0;
 
-                using var cmd = conn.CreateCommand();
+                if (hasUsermanDb)
+                {
+                    try
+                    {
+                        using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};Mode=ReadOnly;Cache=Shared");
+                        conn.Open();
 
-                // 1. Total users
-                cmd.CommandText = "SELECT COUNT(*) FROM user";
-                var total = Convert.ToInt32(cmd.ExecuteScalar());
+                        using var cmd = conn.CreateCommand();
 
-                // 2. Active users (state = 1)
-                cmd.CommandText = "SELECT COUNT(*) FROM userprofile WHERE state = 1 AND paused = 0";
-                var online = Convert.ToInt32(cmd.ExecuteScalar());
+                        // 1. Total users
+                        cmd.CommandText = "SELECT COUNT(*) FROM user";
+                        total = Convert.ToInt32(cmd.ExecuteScalar());
 
-                // 3. Expired users (state = 2)
-                cmd.CommandText = "SELECT COUNT(*) FROM userprofile WHERE state = 2";
-                var offline = Convert.ToInt32(cmd.ExecuteScalar());
+                        // 2. Active users (state = 1)
+                        cmd.CommandText = "SELECT COUNT(*) FROM userprofile WHERE state = 1 AND paused = 0";
+                        online = Convert.ToInt32(cmd.ExecuteScalar());
 
-                // 4. Paused users (paused = 1)
-                cmd.CommandText = "SELECT COUNT(*) FROM userprofile WHERE paused = 1";
-                var warning = Convert.ToInt32(cmd.ExecuteScalar());
+                        // 3. Expired users (state = 2)
+                        cmd.CommandText = "SELECT COUNT(*) FROM userprofile WHERE state = 2";
+                        offline = Convert.ToInt32(cmd.ExecuteScalar());
 
-                // 5. Unused users (activated = 0)
-                cmd.CommandText = "SELECT COUNT(*) FROM userprofile WHERE activated = 0";
-                var critical = Convert.ToInt32(cmd.ExecuteScalar());
+                        // 4. Paused users (paused = 1)
+                        cmd.CommandText = "SELECT COUNT(*) FROM userprofile WHERE paused = 1";
+                        warning = Convert.ToInt32(cmd.ExecuteScalar());
 
-                // 6. Total profiles
-                cmd.CommandText = "SELECT COUNT(*) FROM profile WHERE name <> ''";
-                var projects = Convert.ToInt32(cmd.ExecuteScalar());
+                        // 5. Unused users (activated = 0)
+                        cmd.CommandText = "SELECT COUNT(*) FROM userprofile WHERE activated = 0";
+                        critical = Convert.ToInt32(cmd.ExecuteScalar());
 
-                // 7. Active sessions (lastSeenAt > 0)
-                cmd.CommandText = "SELECT COUNT(*) FROM user WHERE lastSeenAt > 0";
-                var sessions = Convert.ToInt32(cmd.ExecuteScalar());
+                        // 6. Total profiles
+                        cmd.CommandText = "SELECT COUNT(*) FROM profile WHERE name <> ''";
+                        projects = Convert.ToInt32(cmd.ExecuteScalar());
+
+                        // 7. Active sessions (lastSeenAt > 0)
+                        cmd.CommandText = "SELECT COUNT(*) FROM user WHERE lastSeenAt > 0";
+                        sessions = Convert.ToInt32(cmd.ExecuteScalar());
+                    }
+                    catch (Exception ex)
+                    {
+                        diagnostics.Add($"خطأ أثناء قراءة UserManager SQLite: {ex.Message}");
+                    }
+                }
 
                 _dispatcherService.InvokeAsync(() =>
                 {

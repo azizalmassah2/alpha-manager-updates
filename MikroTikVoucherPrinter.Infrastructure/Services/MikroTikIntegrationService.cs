@@ -23,18 +23,24 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
         private readonly ISettingsService _settingsService;
         private readonly ILogger<LegacyMikroTikIntegrationService> _logger;
 
-        private static readonly AsyncCircuitBreakerPolicy _circuitBreaker = Policy
-            .Handle<TikConnectionException>()
-            .Or<OperationCanceledException>()
-            .CircuitBreakerAsync(
-                exceptionsAllowedBeforeBreaking: 3, 
-                durationOfBreak: TimeSpan.FromSeconds(15)
-            );
+        private AsyncCircuitBreakerPolicy _circuitBreaker;
 
         public LegacyMikroTikIntegrationService(ISettingsService settingsService, ILogger<LegacyMikroTikIntegrationService> logger)
         {
             _settingsService = settingsService;
             _logger = logger;
+            ResetCircuitBreaker();
+        }
+
+        public void ResetCircuitBreaker()
+        {
+            _circuitBreaker = Policy
+                .Handle<TikConnectionException>()
+                .Or<OperationCanceledException>()
+                .CircuitBreakerAsync(
+                    exceptionsAllowedBeforeBreaking: 5,
+                    durationOfBreak: TimeSpan.FromSeconds(5)
+                );
         }
 
         public async Task<Result<MikroTikUserResult>> CreateUserAsync(string username, string? password, string profileName, CancellationToken cancellationToken = default)
@@ -292,53 +298,120 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                             isHotspot = true;
                         }
 
+                        bool connectionBroken = false;
                         foreach (var u in users)
                         {
                             cancellationToken.ThrowIfCancellationRequested();
 
-                            try
+                            if (connectionBroken)
                             {
-                                if (isHotspot == true)
+                                results[u.username] = Result<MikroTikUserResult>.Failure("انقطع الاتصال بالراوتر أثناء عملية الرفع الجماعية", ErrorType.ExternalService);
+                                failed++;
+                                progress?.Report((success, failed, total));
+                                continue;
+                            }
+
+                            bool wasAlreadyPresent = false;
+                            bool userFailed = false;
+                            string failureMessage = "";
+
+                            if (isHotspot == true)
+                            {
+                                try
                                 {
                                     var args = new List<string> { "name", u.username, "profile", u.profileName, "server", "all" };
                                     if (!string.IsNullOrEmpty(u.password)) { args.Add("password"); args.Add(u.password); }
                                     connection.CreateCommandAndParameters("/ip/hotspot/user/add", args.ToArray()).ExecuteNonQuery();
                                 }
-                                else
+                                catch (Exception ex)
                                 {
-                                    if (isV7)
+                                    if (ex.Message.Contains("already", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        wasAlreadyPresent = true;
+                                    }
+                                    else
+                                    {
+                                        userFailed = true;
+                                        failureMessage = ex.Message;
+                                        if (ex is System.Net.Sockets.SocketException || ex is System.IO.IOException || ex is TikConnectionException)
+                                        {
+                                            connectionBroken = true;
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                if (isV7)
+                                {
+                                    try
                                     {
                                         var args = new List<string> { "name", u.username, "group", u.profileName };
                                         if (!string.IsNullOrEmpty(u.password)) { args.Add("password"); args.Add(u.password); }
                                         connection.CreateCommandAndParameters("/user-manager/user/add", args.ToArray()).ExecuteNonQuery();
                                     }
-                                    else
+                                    catch (Exception ex)
                                     {
-                                        bool added = false;
-                                        if (useOwner == null || useOwner == true)
+                                        if (ex.Message.Contains("already", StringComparison.OrdinalIgnoreCase))
                                         {
+                                            wasAlreadyPresent = true;
+                                        }
+                                        else
+                                        {
+                                            userFailed = true;
+                                            failureMessage = ex.Message;
+                                            if (ex is System.Net.Sockets.SocketException || ex is System.IO.IOException || ex is TikConnectionException)
+                                            {
+                                                connectionBroken = true;
+                                            }
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    var argsV6Cust = new List<string> { "customer", adminUser, "username", u.username };
+                                    if (!string.IsNullOrEmpty(u.password)) { argsV6Cust.Add("password"); argsV6Cust.Add(u.password); }
+
+                                    try
+                                    {
+                                        connection.CreateCommandAndParameters("/tool/user-manager/user/add", argsV6Cust.ToArray()).ExecuteNonQuery();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        if (ex.Message.Contains("already", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            wasAlreadyPresent = true;
+                                        }
+                                        else
+                                        {
+                                            var argsSimple = new List<string> { "username", u.username };
+                                            if (!string.IsNullOrEmpty(u.password)) { argsSimple.Add("password"); argsSimple.Add(u.password); }
                                             try
                                             {
-                                                var argsV6Owner = new List<string> { "username", u.username, "owner", adminUser };
-                                                if (!string.IsNullOrEmpty(u.password)) { argsV6Owner.Add("password"); argsV6Owner.Add(u.password); }
-                                                connection.CreateCommandAndParameters("/tool/user-manager/user/add", argsV6Owner.ToArray()).ExecuteNonQuery();
-                                                useOwner = true;
-                                                added = true;
+                                                connection.CreateCommandAndParameters("/tool/user-manager/user/add", argsSimple.ToArray()).ExecuteNonQuery();
                                             }
-                                            catch (TikCommandException ex)
+                                            catch (Exception simpleEx)
                                             {
-                                                if (ex.Message.Contains("already")) throw;
-                                                useOwner = false;
+                                                if (simpleEx.Message.Contains("already", StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    wasAlreadyPresent = true;
+                                                }
+                                                else
+                                                {
+                                                    userFailed = true;
+                                                    failureMessage = simpleEx.Message;
+                                                    if (simpleEx is System.Net.Sockets.SocketException || simpleEx is System.IO.IOException || simpleEx is TikConnectionException)
+                                                    {
+                                                        connectionBroken = true;
+                                                    }
+                                                    _logger.LogWarning("Fallback add failed: {Msg}", simpleEx.Message);
+                                                }
                                             }
                                         }
-                                        
-                                        if (!added && useOwner == false)
-                                        {
-                                            var argsV6Cust = new List<string> { "username", u.username, "customer", adminUser };
-                                            if (!string.IsNullOrEmpty(u.password)) { argsV6Cust.Add("password"); argsV6Cust.Add(u.password); }
-                                            connection.CreateCommandAndParameters("/tool/user-manager/user/add", argsV6Cust.ToArray()).ExecuteNonQuery();
-                                        }
+                                    }
 
+                                    if (!userFailed)
+                                    {
                                         if (cachedProfileCommand != null)
                                         {
                                             var args = cachedProfileCommand.ToArray();
@@ -373,19 +446,22 @@ namespace MikroTikVoucherPrinter.Infrastructure.Services
                                         }
                                     }
                                 }
+                            }
 
-                                results[u.username] = Result<MikroTikUserResult>.Success(new MikroTikUserResult { Id = $"generated_{Guid.NewGuid()}", Username = u.username, WasAlreadyPresent = false });
-                                success++;
-                            }
-                            catch (TikCommandException ex) when (ex.Message.Contains("already"))
+                            if (userFailed)
                             {
-                                results[u.username] = Result<MikroTikUserResult>.Success(new MikroTikUserResult { Id = $"existing_{Guid.NewGuid()}", Username = u.username, WasAlreadyPresent = true });
-                                success++;
-                            }
-                            catch (Exception ex)
-                            {
-                                results[u.username] = Result<MikroTikUserResult>.Failure($"خطأ: {ex.Message}", ErrorType.ExternalService);
+                                results[u.username] = Result<MikroTikUserResult>.Failure(failureMessage, ErrorType.ExternalService);
                                 failed++;
+                            }
+                            else
+                            {
+                                results[u.username] = Result<MikroTikUserResult>.Success(new MikroTikUserResult
+                                {
+                                    Id = wasAlreadyPresent ? $"existing_{Guid.NewGuid()}" : $"generated_{Guid.NewGuid()}",
+                                    Username = u.username,
+                                    WasAlreadyPresent = wasAlreadyPresent
+                                });
+                                success++;
                             }
 
                             progress?.Report((success, failed, total));

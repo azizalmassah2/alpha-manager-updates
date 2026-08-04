@@ -91,7 +91,12 @@ public class MikroTikDiscoveryService
                 var device = ParseMndpPayload(buffer);
                 device.IpAddress = receiveResult.RemoteEndPoint.Address.ToString();
 
-                if (!string.IsNullOrEmpty(device.MacAddress) && seenMacs.Add(device.MacAddress))
+                if (!string.IsNullOrEmpty(device.MacAddress) && 
+                    !device.MacAddress.Equals("Unknown", StringComparison.OrdinalIgnoreCase) && 
+                    !device.MacAddress.Equals("—", StringComparison.OrdinalIgnoreCase) && 
+                    device.MacAddress != "00:00:00:00:00:00" && 
+                    device.MacAddress != "00-00-00-00-00-00" && 
+                    seenMacs.Add(device.MacAddress))
                 {
                     devices.Add(device);
                 }

@@ -55,6 +55,7 @@ public partial class AgentManagementViewModel : ViewModelBase, IActivatable
     [NotifyCanExecuteChangedFor(nameof(EditAgentCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteAgentCommand))]
     [NotifyCanExecuteChangedFor(nameof(ToggleActiveCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SettleBalanceCommand))]
     private AgentDto? _selectedAgent;
 
     [ObservableProperty]
@@ -68,6 +69,31 @@ public partial class AgentManagementViewModel : ViewModelBase, IActivatable
 
     [ObservableProperty]
     private int _totalVouchers;
+
+    [ObservableProperty]
+    private decimal _totalSalesRevenue;
+
+    [ObservableProperty]
+    private decimal _totalEarnedCommissions;
+
+    [ObservableProperty]
+    private decimal _totalNetOwed;
+
+    private string _searchQuery = string.Empty;
+    public string SearchQuery
+    {
+        get => _searchQuery;
+        set
+        {
+            if (SetProperty(ref _searchQuery, value))
+            {
+                ApplySearchFilter();
+            }
+        }
+    }
+
+    public ObservableCollection<AgentDto> DisplayedAgents { get; } = new();
+    private readonly List<AgentDto> _allAgentsCache = new();
 
     public AgentManagementViewModel(
         IPermissionService permissionService, 
@@ -118,6 +144,9 @@ public partial class AgentManagementViewModel : ViewModelBase, IActivatable
             
             await _dispatcherService.InvokeAsync(() =>
             {
+                _allAgentsCache.Clear();
+                _allAgentsCache.AddRange(agentsList);
+
                 Agents.Clear();
                 foreach (var a in agentsList)
                 {
@@ -127,6 +156,11 @@ public partial class AgentManagementViewModel : ViewModelBase, IActivatable
                 TotalAgents = Agents.Count;
                 ActiveAgents = Agents.Count(a => a.IsActive);
                 TotalVouchers = Agents.Sum(a => a.VoucherCount);
+                TotalSalesRevenue = Agents.Sum(a => a.TotalSalesAmount);
+                TotalEarnedCommissions = Agents.Sum(a => a.EarnedCommission);
+                TotalNetOwed = Agents.Sum(a => a.NetOwedBalance);
+
+                ApplySearchFilter();
             });
             CurrentState = Agents.Count == 0 ? WorkspaceState.Empty : WorkspaceState.Loaded;
         }
@@ -141,6 +175,56 @@ public partial class AgentManagementViewModel : ViewModelBase, IActivatable
                 CurrentState = WorkspaceState.Loaded;
                 _notificationService.ShowError($"فشل تحديث الوكلاء: {ex.Message}");
             }
+        }
+    }
+
+    private void ApplySearchFilter()
+    {
+        DisplayedAgents.Clear();
+        var q = SearchQuery?.Trim() ?? string.Empty;
+        var filtered = string.IsNullOrEmpty(q)
+            ? _allAgentsCache
+            : _allAgentsCache.Where(a =>
+                a.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                a.Phone.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                a.Notes.Contains(q, StringComparison.OrdinalIgnoreCase));
+
+        foreach (var item in filtered)
+        {
+            DisplayedAgents.Add(item);
+        }
+    }
+
+    private bool CanSettleBalance() => SelectedAgent != null;
+
+    [RelayCommand(CanExecute = nameof(CanSettleBalance))]
+    private async Task SettleBalanceAsync()
+    {
+        if (SelectedAgent == null) return;
+
+        var dialog = new Views.SettleAgentBalanceDialog(SelectedAgent.Name, SelectedAgent.NetOwedBalance)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+
+        if (dialog.ShowDialog() == true && dialog.PaymentAmount > 0)
+        {
+            await ExecuteBusyAsync(async (token) =>
+            {
+                try
+                {
+                    await _agentService.SettleAgentBalanceAsync(SelectedAgent.Id, dialog.PaymentAmount, dialog.PaymentNotes, token);
+                    await _dispatcherService.InvokeAsync(() =>
+                    {
+                        _notificationService.ShowSuccess($"✅ تم تسديد مبلغ ({dialog.PaymentAmount:N0}) لحساب الوكيل [{SelectedAgent.Name}] بنجاح.", "تسديد حساب");
+                    });
+                    await LoadAgentsAsync();
+                }
+                catch (Exception ex)
+                {
+                    await _dispatcherService.InvokeAsync(() => _notificationService.ShowError($"فشل تسديد الحساب: {ex.Message}"));
+                }
+            }, "جارٍ تسديد رصيد الوكيل...");
         }
     }
 

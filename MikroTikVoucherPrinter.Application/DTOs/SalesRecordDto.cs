@@ -61,7 +61,7 @@ public class SalesRecordDto
 
     public int EffectiveState => IsQuotaConsumed ? 2 : 1;
 
-    public string StatusText => IsQuotaConsumed ? "منتهي" : "مستخدم";
+    public string StatusText => IsQuotaConsumed ? "منتهي" : "نشط";
 
     // ── آخر ظهور ──────────────────────────────────────────────
     /// <summary>user.lastSeenAt (Unix timestamp)</summary>

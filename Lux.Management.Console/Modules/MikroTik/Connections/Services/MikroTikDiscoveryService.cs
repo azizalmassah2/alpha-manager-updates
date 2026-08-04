@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
@@ -15,9 +15,9 @@ namespace Lux.Management.Console.Modules.MikroTik.Connections.Services;
 public class MikroTikDiscoveryService : IMikroTikDiscoveryService
 {
     private const int MndpPort = 5678;
-    private const int DiscoveryTimeoutMs = 4000;
+    private const int DiscoveryTimeoutMs = 3000;
 
-    public async Task<IEnumerable<DiscoveredDevice>> DiscoverDevicesAsync()
+    public async Task<IEnumerable<DiscoveredDevice>> DiscoverDevicesAsync(CancellationToken cancellationToken = default)
     {
         var results = new List<DiscoveredDevice>();
 
@@ -67,29 +67,41 @@ public class MikroTikDiscoveryService : IMikroTikDiscoveryService
                 catch { }
             }
 
-            using var cts = new CancellationTokenSource(DiscoveryTimeoutMs);
-            try
+            var startTime = DateTime.UtcNow;
+            while (!cancellationToken.IsCancellationRequested && (DateTime.UtcNow - startTime).TotalMilliseconds < DiscoveryTimeoutMs)
             {
-                while (!cts.Token.IsCancellationRequested)
+                int remainingMs = Math.Max(100, DiscoveryTimeoutMs - (int)(DateTime.UtcNow - startTime).TotalMilliseconds);
+                var receiveTask = udpClient.ReceiveAsync();
+                var delayTask = Task.Delay(remainingMs);
+
+                var completedTask = await Task.WhenAny(receiveTask, delayTask);
+                if (completedTask == receiveTask)
                 {
-                    var result = await udpClient.ReceiveAsync(cts.Token);
-                    System.Console.WriteLine($"[MNDP] Packet Received From {result.RemoteEndPoint.Address}");
-                    var device = ParseMndpPacket(result.Buffer, result.RemoteEndPoint);
-                    if (device != null && !string.IsNullOrEmpty(device.IpAddress))
+                    try
                     {
-                        System.Console.WriteLine($"[MNDP] MikroTikDevice Created: {device.IpAddress}");
-                        // Avoid duplicates
-                        if (!results.Exists(d => d.IpAddress == device.IpAddress))
+                        var result = await receiveTask;
+                        System.Console.WriteLine($"[MNDP] Packet Received From {result.RemoteEndPoint.Address}");
+                        var device = ParseMndpPacket(result.Buffer, result.RemoteEndPoint);
+                        if (device != null && !string.IsNullOrEmpty(device.IpAddress) && IsValidMacAddress(device.MacAddress))
                         {
-                            results.Add(device);
-                            System.Console.WriteLine($"[MNDP] Device Added To Collection. Total: {results.Count}");
+                            System.Console.WriteLine($"[MNDP] MikroTikDevice Created: {device.IpAddress}");
+                            if (!results.Exists(d => d.IpAddress == device.IpAddress))
+                            {
+                                results.Add(device);
+                                System.Console.WriteLine($"[MNDP] Device Added To Collection. Total: {results.Count}");
+                            }
                         }
                     }
+                    catch
+                    {
+                        break;
+                    }
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                // Timeout reached — normal exit
+                else
+                {
+                    // Timeout reached gracefully without throwing OperationCanceledException
+                    break;
+                }
             }
         }
         catch (Exception)
@@ -97,7 +109,17 @@ public class MikroTikDiscoveryService : IMikroTikDiscoveryService
             // Discovery failure is non-fatal; just return empty
         }
 
-        return results;
+        return results.Where(d => IsValidMacAddress(d.MacAddress)).ToList();
+    }
+
+    private static bool IsValidMacAddress(string? mac)
+    {
+        if (string.IsNullOrWhiteSpace(mac)) return false;
+        var trimmed = mac.Trim();
+        if (trimmed.Equals("Unknown", StringComparison.OrdinalIgnoreCase)) return false;
+        if (trimmed.Equals("—", StringComparison.OrdinalIgnoreCase)) return false;
+        if (trimmed == "00:00:00:00:00:00" || trimmed == "00-00-00-00-00-00") return false;
+        return true;
     }
 
     /// <summary>
@@ -108,78 +130,56 @@ public class MikroTikDiscoveryService : IMikroTikDiscoveryService
     ///   0x0005 = Identity
     ///   0x0007 = Version
     ///   0x0008 = Platform
-    ///   0x000A = Uptime (seconds, uint32 LE)
-    ///   0x000B = RouterBoard
-    ///   0x000C = Board Name
-    ///   0x0010 = InterfaceName
-    ///   0x0011 = IPv4 Address
+    ///   0x000E = Interface Name
     /// </summary>
-    private static DiscoveredDevice? ParseMndpPacket(byte[] data, IPEndPoint sender)
+    private static DiscoveredDevice? ParseMndpPacket(byte[] buffer, IPEndPoint remoteEndPoint)
     {
-        if (data.Length < 4) return null;
+        if (buffer.Length < 4) return null;
 
-        // Skip 4-byte header (version + sequence + checksum)
-        int offset = 4;
         var device = new DiscoveredDevice
         {
-            IpAddress = sender.Address.ToString()
+            IpAddress = remoteEndPoint.Address.ToString()
         };
 
-        while (offset + 4 <= data.Length)
+        int pos = 4; // Skip 4-byte header
+        while (pos + 4 <= buffer.Length)
         {
-            ushort type = (ushort)((data[offset] << 8) | data[offset + 1]);
-            ushort length = (ushort)((data[offset + 2] << 8) | data[offset + 3]);
-            offset += 4;
+            ushort type = (ushort)((buffer[pos] << 8) | buffer[pos + 1]);
+            ushort len = (ushort)((buffer[pos + 2] << 8) | buffer[pos + 3]);
+            pos += 4;
 
-            if (offset + length > data.Length) break;
+            if (pos + len > buffer.Length) break;
 
-            byte[] value = new byte[length];
-            Array.Copy(data, offset, value, 0, length);
-            offset += length;
+            byte[] val = new byte[len];
+            Array.Copy(buffer, pos, val, 0, len);
+            pos += len;
 
             switch (type)
             {
-                case 0x0001: // MAC Address
-                    if (length == 6)
-                        device.MacAddress = BitConverter.ToString(value).Replace("-", ":");
-                    System.Console.WriteLine($"[MNDP] MAC Parsed = {device.MacAddress}");
-                    break;
-
-                case 0x0005: // Identity
-                    device.Identity = Encoding.UTF8.GetString(value).TrimEnd('\0');
-                    System.Console.WriteLine($"[MNDP] Identity Parsed = {device.Identity}");
-                    break;
-
-                case 0x0007: // RouterOS Version
-                    device.Version = Encoding.UTF8.GetString(value).TrimEnd('\0');
-                    System.Console.WriteLine($"[MNDP] Version Parsed = {device.Version}");
-                    break;
-
-                case 0x0008: // Platform
-                    device.Platform = Encoding.UTF8.GetString(value).TrimEnd('\0');
-                    break;
-
-                case 0x000A: // Uptime in seconds (uint32 LE)
-                    if (length == 4)
+                case 0x0001: // MAC Address (binary 6 bytes)
+                    if (val.Length == 6)
                     {
-                        uint uptimeSecs = BitConverter.ToUInt32(value, 0);
-                        var ts = TimeSpan.FromSeconds(uptimeSecs);
-                        device.Uptime = $"{(int)ts.TotalDays}d {ts.Hours}h {ts.Minutes}m";
+                        device.MacAddress = string.Format("{0:X2}:{1:X2}:{2:X2}:{3:X2}:{4:X2}:{5:X2}",
+                            val[0], val[1], val[2], val[3], val[4], val[5]);
+                        System.Console.WriteLine($"[MNDP] MAC Parsed = {device.MacAddress}");
                     }
                     break;
 
-                case 0x000B: // RouterBoard model
-                    device.RouterBoard = Encoding.UTF8.GetString(value).TrimEnd('\0');
+                case 0x0005: // Identity (string)
+                    device.Identity = Encoding.UTF8.GetString(val).TrimEnd('\0');
+                    System.Console.WriteLine($"[MNDP] Identity Parsed = {device.Identity}");
                     break;
 
-                case 0x0011: // IPv4 Address (4 bytes)
-                    if (length == 4)
-                        device.IpAddress = $"{value[0]}.{value[1]}.{value[2]}.{value[3]}";
+                case 0x0007: // Version (string)
+                    device.Version = Encoding.UTF8.GetString(val).TrimEnd('\0');
+                    System.Console.WriteLine($"[MNDP] Version Parsed = {device.Version}");
+                    break;
+
+                case 0x0008: // Platform (string)
+                    device.Platform = Encoding.UTF8.GetString(val).TrimEnd('\0');
                     break;
             }
         }
-        if (string.IsNullOrWhiteSpace(device.MacAddress))
-            return null;
 
         return device;
     }

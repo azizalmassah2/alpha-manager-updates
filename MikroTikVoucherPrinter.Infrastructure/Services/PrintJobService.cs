@@ -61,7 +61,7 @@ public class PrintJobService : IPrintJobService
             Id = batchId,
             Name = request.Mode == GenerationMode.Bulk ? $"Batch {DateTime.Now:yyyy-MM-dd HH:mm}" : $"Single {DateTime.Now:yyyy-MM-dd HH:mm}",
             ProfileName = request.ProfileName,
-            TotalCount = count
+            TotalCards = count
         };
 
         // 2. Generate Vouchers with Reserved status (Local allocation)
@@ -398,7 +398,7 @@ public class PrintJobService : IPrintJobService
                     printSettings.CustomTemplateId = job.TemplateId;
                 }
 
-                var pdfResult = await _printService.GeneratePdfAsync(dtoList, printSettings, cancellationToken);
+                var pdfResult = await _printService.GeneratePdfAsync(dtoList, printSettings, null, cancellationToken);
                 if (!pdfResult.IsSuccess)
                 {
                     throw new InvalidOperationException($"فشل بناء الـ PDF: {pdfResult.ErrorMessage}");

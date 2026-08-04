@@ -10,26 +10,55 @@ using MikroTikVoucherPrinter.Application.Interfaces;
 using MikroTikVoucherPrinter.Domain.Entities;
 using MikroTikVoucherPrinter.Infrastructure.Data;
 
+using MikroTikVoucherPrinter.Domain.Interfaces.Platform;
+
 namespace MikroTikVoucherPrinter.Infrastructure.Services;
 
 public class AgentService : IAgentService
 {
     private readonly IDbContextFactory<LuxCardDbContext> _factory;
+    private readonly IActiveRouterContext _routerContext;
     private readonly ILogger<AgentService> _logger;
 
-    public AgentService(IDbContextFactory<LuxCardDbContext> factory, ILogger<AgentService> logger)
+    public AgentService(
+        IDbContextFactory<LuxCardDbContext> factory,
+        IActiveRouterContext routerContext,
+        ILogger<AgentService> logger)
     {
         _factory = factory;
+        _routerContext = routerContext;
         _logger  = logger;
     }
 
     public async Task<IReadOnlyList<AgentDto>> GetAllAgentsAsync(CancellationToken cancellationToken = default)
     {
+        var routerId = _routerContext.CurrentRouterId;
+        if (routerId == null || routerId == Guid.Empty)
+        {
+            return Array.Empty<AgentDto>();
+        }
+
         await using var ctx = await _factory.CreateDbContextAsync(cancellationToken);
-        var agents = await ctx.Agents
+        var agentEntities = await ctx.Agents
             .AsNoTracking()
+            .Where(a => a.RouterId == routerId.Value)
             .OrderByDescending(a => a.CreatedAt)
-            .Select(a => new AgentDto
+            .ToListAsync(cancellationToken);
+
+        var list = new List<AgentDto>();
+        foreach (var a in agentEntities)
+        {
+            var vouchers = await ctx.Vouchers
+                .AsNoTracking()
+                .Where(v => v.AgentId == a.Id && v.RouterId == routerId.Value)
+                .ToListAsync(cancellationToken);
+
+            var voucherCount = vouchers.Count;
+            var sales = vouchers.Sum(v => v.Price);
+            var commission = sales * (a.CommissionRate / 100m);
+            var netOwed = (sales - commission) - a.Balance;
+
+            list.Add(new AgentDto
             {
                 Id             = a.Id,
                 Name           = a.Name,
@@ -38,42 +67,60 @@ public class AgentService : IAgentService
                 CommissionRate = a.CommissionRate,
                 Balance        = a.Balance,
                 IsActive       = a.IsActive,
-                VoucherCount   = ctx.Vouchers.Count(v => v.AgentId == a.Id),
+                VoucherCount   = voucherCount,
+                TotalSalesAmount = sales,
+                EarnedCommission = commission,
+                NetOwedBalance  = netOwed,
                 CreatedAt      = a.CreatedAt
-            })
-            .ToListAsync(cancellationToken);
+            });
+        }
 
-        _logger.LogInformation("✅ تم جلب {Count} وكيل", agents.Count);
-        return agents;
+        _logger.LogInformation("✅ تم جلب {Count} وكيل مع تفاصيل المبيعات والعمولات للراوتر {RouterId}", list.Count, routerId);
+        return list;
     }
 
     public async Task<AgentDto?> GetAgentByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var ctx = await _factory.CreateDbContextAsync(cancellationToken);
-        return await ctx.Agents
+        var a = await ctx.Agents
             .AsNoTracking()
-            .Where(a => a.Id == id)
-            .Select(a => new AgentDto
-            {
-                Id             = a.Id,
-                Name           = a.Name,
-                Phone          = a.Phone,
-                Notes          = a.Notes,
-                CommissionRate = a.CommissionRate,
-                Balance        = a.Balance,
-                IsActive       = a.IsActive,
-                VoucherCount   = ctx.Vouchers.Count(v => v.AgentId == a.Id),
-                CreatedAt      = a.CreatedAt
-            })
-            .FirstOrDefaultAsync(cancellationToken);
+            .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
+
+        if (a == null) return null;
+
+        var vouchers = await ctx.Vouchers.AsNoTracking().Where(v => v.AgentId == a.Id).ToListAsync(cancellationToken);
+        var sales = vouchers.Sum(v => v.Price);
+        var commission = sales * (a.CommissionRate / 100m);
+        var netOwed = (sales - commission) - a.Balance;
+
+        return new AgentDto
+        {
+            Id             = a.Id,
+            Name           = a.Name,
+            Phone          = a.Phone,
+            Notes          = a.Notes,
+            CommissionRate = a.CommissionRate,
+            Balance        = a.Balance,
+            IsActive       = a.IsActive,
+            VoucherCount   = vouchers.Count,
+            TotalSalesAmount = sales,
+            EarnedCommission = commission,
+            NetOwedBalance  = netOwed,
+            CreatedAt      = a.CreatedAt
+        };
     }
 
     public async Task<AgentDto> CreateAgentAsync(Agent agent, CancellationToken cancellationToken = default)
     {
+        if (agent.RouterId == Guid.Empty && _routerContext.CurrentRouterId.HasValue)
+        {
+            agent.RouterId = _routerContext.CurrentRouterId.Value;
+        }
+
         await using var ctx = await _factory.CreateDbContextAsync(cancellationToken);
         ctx.Agents.Add(agent);
         await ctx.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("✅ تم إنشاء الوكيل: {Name}", agent.Name);
+        _logger.LogInformation("✅ تم إنشاء الوكيل: {Name} للراوتر {RouterId}", agent.Name, agent.RouterId);
 
         return new AgentDto
         {
@@ -85,6 +132,9 @@ public class AgentService : IAgentService
             Balance        = agent.Balance,
             IsActive       = agent.IsActive,
             VoucherCount   = 0,
+            TotalSalesAmount = 0,
+            EarnedCommission = 0,
+            NetOwedBalance  = 0,
             CreatedAt      = agent.CreatedAt
         };
     }
@@ -128,5 +178,23 @@ public class AgentService : IAgentService
         await ctx.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("🔄 تم تبديل حالة الوكيل {Id} إلى {State}", id, agent.IsActive);
         return agent.IsActive;
+    }
+
+    public async Task SettleAgentBalanceAsync(Guid id, decimal amount, string? notes, CancellationToken cancellationToken = default)
+    {
+        await using var ctx = await _factory.CreateDbContextAsync(cancellationToken);
+        var agent = await ctx.Agents.FindAsync(new object[] { id }, cancellationToken);
+        if (agent == null) throw new InvalidOperationException($"الوكيل بالمعرف {id} غير موجود.");
+
+        agent.Balance += amount;
+        if (!string.IsNullOrWhiteSpace(notes))
+        {
+            agent.Notes = string.IsNullOrWhiteSpace(agent.Notes)
+                ? $"[{DateTime.Now:yyyy-MM-dd}] تسديد: {amount:N0} - {notes}"
+                : $"{agent.Notes}\n[{DateTime.Now:yyyy-MM-dd}] تسديد: {amount:N0} - {notes}";
+        }
+
+        await ctx.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("✅ تم تسديد مبلغ {Amount} لحساب الوكيل {Name}", amount, agent.Name);
     }
 }

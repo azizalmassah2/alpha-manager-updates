@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -149,8 +149,7 @@ public class RouterHealthService : IRouterHealthService, IHostedService, IDispos
                         OverallHealth = RouterHealthLevel.Unknown 
                     });
                     
-                    // If connection dropped, maybe we should exit the loop and let it be re-triggered?
-                    // For now, we wait and retry. The session manager might throw if disconnected.
+                    _activeRouterContext.MarkDisconnected("انقطع الاتصال أو كابل الشبكة أثناء مراقبة النظام");
                     break; 
                 }
 

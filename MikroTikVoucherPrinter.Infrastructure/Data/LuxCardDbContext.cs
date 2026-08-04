@@ -18,6 +18,7 @@ public class LuxCardDbContext : DbContext
     public DbSet<Profile> Profiles { get; set; } = null!;
     public DbSet<TemplateConfig> TemplateConfigs { get; set; } = null!;
     public DbSet<LuxTemplate> LuxTemplates { get; set; } = null!;
+    public DbSet<VlanTelemetryState> VlanTelemetryStates { get; set; } = null!;
 
     public LuxCardDbContext(
         DbContextOptions<LuxCardDbContext> options,
@@ -69,8 +70,19 @@ public class LuxCardDbContext : DbContext
         {
             entity.Property(e => e.RouterId).IsRequired();
             entity.HasIndex(e => e.RouterId);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.SyncStatus);
+            entity.HasIndex(e => new { e.RouterId, e.Status });
+            entity.HasIndex(e => new { e.RouterId, e.IsDeleted, e.CreatedAt });
             entity.HasQueryFilter(e => !e.IsDeleted && e.RouterId == _activeRouterContext.CurrentRouterId);
             entity.Property(e => e.RowVersion).IsConcurrencyToken();
+
+            // Batch → Vouchers FK (One-to-Many)
+            entity.HasMany(e => e.Vouchers)
+                  .WithOne(v => v.Batch)
+                  .HasForeignKey(v => v.BatchId)
+                  .OnDelete(DeleteBehavior.Restrict)
+                  .IsRequired(false);
         });
 
         // 3. TemplateConfig Mapping (legacy — kept as-is)
@@ -155,6 +167,16 @@ public class LuxCardDbContext : DbContext
                   .HasForeignKey(e => e.JobId)
                   .OnDelete(DeleteBehavior.Cascade)
                   .IsRequired(true);
+        });
+
+        // 8. VlanTelemetryState Mapping
+        modelBuilder.Entity<VlanTelemetryState>(entity =>
+        {
+            entity.ToTable("VlanTelemetryStates");
+            entity.Property(e => e.RouterId).IsRequired();
+            entity.HasIndex(e => new { e.RouterId, e.VlanName }).IsUnique();
+            entity.HasQueryFilter(e => !e.IsDeleted && e.RouterId == _activeRouterContext.CurrentRouterId);
+            entity.Property(e => e.RowVersion).IsConcurrencyToken();
         });
     }
 

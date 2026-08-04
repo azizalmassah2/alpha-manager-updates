@@ -58,16 +58,41 @@ public class ConnectionService : IConnectionService
         }
 
         // 2. تحديث أو إدخال الراوتر في قاعدة البيانات المحلية وحفظه
+        // [FIX I-01] نستخدم SoftwareId كمعرّف فريد عالمياً للجهاز لمنع تصادم راوترين بنفس IP
+        var softwareId    = result.RouterInfo?.SoftwareId;
+        var serialNumber  = result.RouterInfo?.SerialNumber;
+        var identityName  = result.RouterInfo?.Identity ?? host;
+
         var existingList = await _routerRepository.GetAllAsync();
-        var existing = existingList.FirstOrDefault(r =>
-            r.Host.Equals(host, StringComparison.OrdinalIgnoreCase) && r.Port == port);
+        Router? existing;
+
+        if (!string.IsNullOrEmpty(softwareId))
+        {
+            // أولاً: البحث بالـ SoftwareId (معرف فريد لكل جهاز RouterOS)
+            existing = existingList.FirstOrDefault(r => r.SoftwareId == softwareId)
+                    ?? existingList.FirstOrDefault(r =>
+                           r.Host.Equals(host, StringComparison.OrdinalIgnoreCase)
+                           && r.Port == port
+                           && string.IsNullOrEmpty(r.SoftwareId)); // ترقية سجل قديم بدون SoftwareId
+        }
+        else
+        {
+            // Fallback: Host + Port (راوترات قديمة لم يُجلب لها SoftwareId بعد)
+            existing = existingList.FirstOrDefault(r =>
+                r.Host.Equals(host, StringComparison.OrdinalIgnoreCase) && r.Port == port);
+        }
 
         Router dbRouter;
         if (existing != null)
         {
-            existing.DisplayName = result.RouterInfo.Identity;
-            existing.Username = username;
+            existing.DisplayName  = identityName;
+            existing.Host         = host;   // يتيح تتبع تغيير IP لنفس الجهاز
+            existing.Port         = port;
+            existing.Username     = username;
             existing.EncryptedPassword = _secureStorageService.Encrypt(password);
+            existing.SoftwareId   = softwareId   ?? existing.SoftwareId;
+            existing.SerialNumber = serialNumber ?? existing.SerialNumber;
+            existing.RouterIdentity = identityName;
             await _routerRepository.UpdateAsync(existing);
             dbRouter = existing;
         }
@@ -75,11 +100,14 @@ public class ConnectionService : IConnectionService
         {
             dbRouter = new Router
             {
-                DisplayName = result.RouterInfo.Identity,
-                Host = host,
-                Port = port,
-                Username = username,
-                EncryptedPassword = _secureStorageService.Encrypt(password)
+                DisplayName     = identityName,
+                Host            = host,
+                Port            = port,
+                Username        = username,
+                EncryptedPassword = _secureStorageService.Encrypt(password),
+                SoftwareId      = softwareId,
+                SerialNumber    = serialNumber,
+                RouterIdentity  = identityName,
             };
             await _routerRepository.AddAsync(dbRouter);
         }

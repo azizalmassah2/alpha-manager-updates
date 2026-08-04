@@ -22,6 +22,8 @@ using Lux.Management.Console.Services;
 using Lux.Management.Console.Core.Security.Authorization;
 using Lux.Management.Console.Core.Security.Models;
 using Lux.Management.Console.Core.Security.Configuration;
+using Lux.Management.Console.Modules.MikroTik.RouterManagement.Services;
+using Lux.Management.Console.Modules.MikroTik.UserManager.Vouchers.Views;
 
 namespace Lux.Management.Console.Modules.MikroTik.UserManager.Vouchers.ViewModels;
 
@@ -67,6 +69,8 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
     private readonly ITemplateService _templateService;
     private readonly IShellState _shellState;
     private readonly IFeatureAuthorizationService _featureAuthorizationService;
+    private readonly IRouterManagementService _routerService;
+    private readonly IProfileService _profileService;
     private readonly ILogger<VoucherManagementViewModel> _logger;
 
     // خصائص معالج الاستيراد
@@ -100,10 +104,18 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
     public IRelayCommand ResumeImportCommand { get; }
     public IRelayCommand HideImportDetailsCommand { get; }
     public IAsyncRelayCommand StartBackgroundImportCommand { get; }
+    public IAsyncRelayCommand<VoucherDto> ToggleFavoriteCommand { get; }
 
     // إلغاء الاستعلامات الجارية
     private CancellationTokenSource? _queryCts;
     private DispatcherTimer? _debounceTimer;
+
+    // ══════════════════════════════════════════════════════
+    //  مراقب المزامنة الدوري (Sync Watchdog)
+    //  يفحص كل 5 ثوانٍ هل يوجد كروت معلقة + اتصال جاهز
+    // ══════════════════════════════════════════════════════
+    private System.Threading.Timer? _syncWatchdogTimer;
+    private bool _watchdogStarted = false;
 
     // ══════════════════════════════════════════════════════
     //  البيانات والجدول
@@ -443,8 +455,10 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
         IShellState shellState,
         IPermissionService permissionService,
         IEventBus eventBus,
+        IRouterManagementService routerService,
         ILogger<VoucherManagementViewModel> logger,
-        IFeatureAuthorizationService featureAuthorizationService) : base(permissionService, eventBus)
+        IFeatureAuthorizationService featureAuthorizationService,
+        IProfileService profileService) : base(permissionService, eventBus)
     {
         _queryService = queryService;
         _syncService = syncService;
@@ -462,7 +476,9 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
         _templateService = templateService;
         _shellState = shellState;
         _featureAuthorizationService = featureAuthorizationService;
+        _routerService = routerService;
         _logger = logger;
+        _profileService = profileService;
 
         Title = "إدارة الكروت";
 
@@ -472,7 +488,7 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
         RetryFailedCommand = new AsyncRelayCommand(RetryFailedDataAsync);
         DeleteSelectedCommand = new AsyncRelayCommand(DeleteSelectedAsync, () => SelectedCount > 0);
         RestoreSelectedCommand = new AsyncRelayCommand(RestoreSelectedAsync, () => SelectedCount > 0);
-        PrintSelectedCommand = new AsyncRelayCommand(PrintSelectedAsync, () => SelectedCount > 0);
+        PrintSelectedCommand = new AsyncRelayCommand(() => PrintSelectedAsync(), () => SelectedCount > 0);
         ClearFilterCommand = new RelayCommand(ClearFilters);
 
         // Stub Commands — تجنب Broken Bindings في XAML
@@ -496,6 +512,7 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
         ShowVoucherDetailsCommand = new AsyncRelayCommand<VoucherDto>(ShowVoucherDetailsAsync, v => v != null);
         CopyUsernameCommand = new RelayCommand<VoucherDto>(CopyUsername, v => v != null && !string.IsNullOrEmpty(v.Username));
         CopyPasswordCommand = new RelayCommand<VoucherDto>(CopyPassword, v => v != null);
+        ToggleFavoriteCommand = new AsyncRelayCommand<VoucherDto>(ToggleFavoriteAsync);
 
         // تهيئة المؤقت للـ Search Debouncing
         _debounceTimer = new DispatcherTimer
@@ -506,6 +523,43 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
 
         // تفعيل استرداد الحالة عند الانتقال
         _stateTracker.HasSavedState = true;
+
+        // [FIX Router Switch] تحديث تلقائي للكروت والشجرة عند تغيير الراوتر النشط من الشريط العلوي
+        _activeRouterContext.ActiveRouterChanged += OnActiveRouterChanged;
+
+        // [WATCHDOG] بدء المراقب الدوري المضمون
+        StartSyncWatchdog();
+    }
+
+    private void OnActiveRouterChanged(object? sender, EventArgs e)
+    {
+        System.Windows.Application.Current?.Dispatcher.InvokeAsync(async () =>
+        {
+            var state = _activeRouterContext.State;
+
+            // [FIX-B] فقط عند الانقطاع الفعلي (وليس خلال Connecting أو Switching)
+            if (state == MikroTikVoucherPrinter.Domain.Enums.Platform.ConnectionState.Disconnected
+                || state == MikroTikVoucherPrinter.Domain.Enums.Platform.ConnectionState.Error
+                || state == MikroTikVoucherPrinter.Domain.Enums.Platform.ConnectionState.AuthenticationFailed
+                || state == MikroTikVoucherPrinter.Domain.Enums.Platform.ConnectionState.Timeout)
+            {
+                // الاتصال انقطع فعلياً → بانر تحذيري فوري
+                ShowStatusBanner(ScreenStatus.Offline,
+                    "⚠️ انقطع الاتصال بالراوتر. الكروت المعلقة ستُزامَن عند عودة الاتصال.");
+                IsRouterConnected = false;
+                RouterName = "غير متصل";
+                return;
+            }
+
+            // [FIX-C3] عند الاتصال الناجح فقط → تهيئة كاملة + مزامنة تلقائية للكروت المعلقة
+            if (state == MikroTikVoucherPrinter.Domain.Enums.Platform.ConnectionState.Connected
+                && _activeRouterContext.IsConnected)
+            {
+                await InitializeAsync();
+                // TriggerBackgroundSync يُستدعى من داخل InitializeAsync تلقائياً
+            }
+            // Connecting/Switching → لا نفعل شيئاً، ننتظر حتى يكتمل الاتصال
+        });
     }
 
     // ══════════════════════════════════════════════════════
@@ -739,7 +793,8 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
                     {
                         if (Vouchers[i].Id != result.Items[i].Id ||
                             Vouchers[i].Status != result.Items[i].Status ||
-                            Vouchers[i].SyncStatus != result.Items[i].SyncStatus)
+                            Vouchers[i].SyncStatus != result.Items[i].SyncStatus ||
+                            Vouchers[i].IsFavorite != result.Items[i].IsFavorite)
                         {
                             Vouchers[i] = result.Items[i];
                         }
@@ -1064,13 +1119,105 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
     }
 
     // ══════════════════════════════════════════════════════
+    //  المراقب الدوري المضمون (Sync Watchdog)
+    //  هذا هو الحل الجذري النهائي: لا يعتمد على أي سلسلة أحداث
+    // ══════════════════════════════════════════════════════
+    private void StartSyncWatchdog()
+    {
+        if (_watchdogStarted) return;
+        _watchdogStarted = true;
+
+        _syncWatchdogTimer = new System.Threading.Timer(async _ =>
+        {
+            if (System.Threading.Interlocked.CompareExchange(ref _isSyncRunningInt, 1, 0) != 0) return;
+            try
+            {
+                if (!_activeRouterContext.IsConnected) return;
+                var routerId = _activeRouterContext.CurrentRouterId;
+                if (!routerId.HasValue || routerId.Value == Guid.Empty) return;
+
+                int pendingCount;
+                int failedCount;
+                try
+                {
+                    await using var db = await _dbFactory.CreateDbContextAsync();
+                    pendingCount = await db.Vouchers
+                        .IgnoreQueryFilters()
+                        .CountAsync(v => v.RouterId == routerId.Value && !v.IsDeleted
+                                      && v.SyncStatus == MikroTikVoucherPrinter.Domain.Enums.SyncStatus.Pending);
+                    failedCount = await db.Vouchers
+                        .IgnoreQueryFilters()
+                        .CountAsync(v => v.RouterId == routerId.Value && !v.IsDeleted
+                                      && v.SyncStatus == MikroTikVoucherPrinter.Domain.Enums.SyncStatus.Failed);
+                }
+                catch { return; }
+
+                if (pendingCount == 0 && failedCount == 0) return;
+
+                _logger.LogInformation("[WATCHDOG] {P} pending + {F} failed -> starting sync", pendingCount, failedCount);
+
+                _dispatcherService.InvokeAsync(() =>
+                {
+                    PendingSyncCount = pendingCount;
+                    FailedSyncCount = failedCount;
+                    ShowStatusBanner(ScreenStatus.PendingChanges,
+                        $"جاري مزامنة {pendingCount + failedCount} كرت مع الراوتر تلقائياً...");
+                });
+
+                SyncMetrics metrics;
+                if (failedCount > 0)
+                    metrics = await _syncService.RetryFailedAsync(CancellationToken.None);
+                else
+                    metrics = await _syncService.ProcessPendingAsync(CancellationToken.None);
+
+                _logger.LogInformation("[WATCHDOG] Done: Success={S} Failed={F}", metrics.Success, metrics.Failed);
+
+                await _dispatcherService.InvokeAsync(async () =>
+                {
+                    await UpdateRouterStatusWidgetAsync();
+                    await RefreshCurrentQueryAsync();
+                    if (metrics.Success > 0)
+                    {
+                        LastSyncTimeText = DateTime.Now.ToString("HH:mm:ss");
+                        var syncedIds = metrics.SyncedVoucherIds;
+                        ShowStatusBanner(ScreenStatus.Updated, $"تمت مزامنة {metrics.Success} كرت بنجاح!");
+                        var choice = System.Windows.MessageBox.Show(
+                            $"تمت مزامنة {metrics.Success} كرت مع الراوتر.\nهل تريد طباعة PDF الآن؟",
+                            "استئناف الطباعة",
+                            System.Windows.MessageBoxButton.YesNo,
+                            System.Windows.MessageBoxImage.Information);
+                        if (choice == System.Windows.MessageBoxResult.Yes)
+                            await PrintSelectedAsync(syncedIds);
+                    }
+                    else if (metrics.Failed > 0)
+                        ShowStatusBanner(ScreenStatus.Failed, $"فشلت مزامنة {metrics.Failed} كرت. سيعاد المحاولة.");
+                    else
+                        HideStatusBanner();
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[WATCHDOG] Exception during sync");
+                _dispatcherService.InvokeAsync(() =>
+                    ShowStatusBanner(ScreenStatus.Failed, $"خطأ في المزامنة التلقائية: {ex.Message}"));
+            }
+            finally
+            {
+                System.Threading.Interlocked.Exchange(ref _isSyncRunningInt, 0);
+            }
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(8));
+    }
+    private int _isSyncRunningInt = 0;
+
+    // ══════════════════════════════════════════════════════
     //  مزامنة الخلفية الذكية (Background Sync)
     // ══════════════════════════════════════════════════════
     private void TriggerBackgroundSync()
     {
-        if (PendingSyncCount == 0) return;
+        int totalUnsynced = PendingSyncCount + FailedSyncCount;
+        if (totalUnsynced == 0) return;
 
-        ShowStatusBanner(ScreenStatus.PendingChanges, $"توجد {PendingSyncCount} كروت بانتظار المزامنة مع الراوتر...");
+        ShowStatusBanner(ScreenStatus.PendingChanges, $"توجد {totalUnsynced} كروت بانتظار المزامنة مع الراوتر...");
 
         _ = Task.Run(async () =>
         {
@@ -1091,17 +1238,49 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
                 });
 
                 var token = CancellationToken.None;
-                
-                // بدء المزامنة
-                var metrics = await _syncService.ProcessPendingAsync(progress, token);
+                SyncMetrics metrics;
+
+                if (FailedSyncCount > 0)
+                {
+                    // RetryFailedAsync: تحول Failed→Pending ثم تستدعي ProcessPendingAsync داخلياً وترجع النتيجة المدمجة
+                    metrics = await _syncService.RetryFailedAsync(token);
+                    // إذا كان هناك كروت Pending إضافية (غير Failed) نعالجها أيضاً
+                    if (PendingSyncCount > 0)
+                    {
+                        var extraMetrics = await _syncService.ProcessPendingAsync(progress, token);
+                        metrics = metrics.Merge(extraMetrics);
+                    }
+                }
+                else
+                {
+                    // فقط Pending
+                    metrics = await _syncService.ProcessPendingAsync(progress, token);
+                }
 
                 await _dispatcherService.InvokeAsync(async () =>
                 {
                     await UpdateRouterStatusWidgetAsync();
+                    await RefreshCurrentQueryAsync();
                     
                     if (metrics.Failed > 0)
                     {
                         ShowStatusBanner(ScreenStatus.Failed, $"اكتملت المزامنة مع وجود أخطاء: نجح {metrics.Success} | فشل {metrics.Failed}");
+                    }
+                    else if (metrics.Success > 0)
+                    {
+                        ShowStatusBanner(ScreenStatus.Updated, $"✓ اكتملت مزامنة {metrics.Success} كرت بنجاح مع الراوتر! يمكنك الآن حفظ وتصدير ملف PDF للطباعة.");
+                        LastSyncTimeText = DateTime.Now.ToString("HH:mm:ss");
+
+                        var userChoice = System.Windows.MessageBox.Show(
+                            $"🎉 تمت مزامنة {metrics.Success} كرت مع الراوتر بنجاح!\n\nهل ترغب في حفظ وطباعة ملف PDF لهذه الكروت الآن؟",
+                            "استئناف الطباعة والتصدير",
+                            System.Windows.MessageBoxButton.YesNo,
+                            System.Windows.MessageBoxImage.Information);
+
+                        if (userChoice == System.Windows.MessageBoxResult.Yes)
+                        {
+                            await PrintSelectedAsync(metrics.SyncedVoucherIds);
+                        }
                     }
                     else
                     {
@@ -1124,6 +1303,10 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
                 {
                     ShowStatusBanner(ScreenStatus.Failed, $"فشلت المزامنة: {ex.Message}");
                 });
+            }
+            finally
+            {
+                System.Threading.Interlocked.Exchange(ref _isSyncRunningInt, 0);
             }
         });
     }
@@ -1251,11 +1434,35 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
         });
     }
 
-    private async Task PrintSelectedAsync()
+    private async Task PrintSelectedAsync(IEnumerable<Guid>? explicitVoucherIds = null)
     {
-        if (SelectedCount == 0) return;
+        List<Guid> idsToFetch;
+        var explicitList = explicitVoucherIds?.ToList();
 
-        if (!_featureAuthorizationService.CanExecute(FeatureId.VoucherPrinting, SelectedCount))
+        if (explicitList != null && explicitList.Count > 0)
+        {
+            idsToFetch = explicitList;
+        }
+        else
+        {
+            var selectedIds = SelectedVoucherIds.ToList();
+            if (selectedIds.Count > 0)
+            {
+                idsToFetch = selectedIds;
+            }
+            else
+            {
+                idsToFetch = Vouchers.Select(v => v.Id).ToList();
+            }
+        }
+
+        if (idsToFetch.Count == 0)
+        {
+            _notificationService.ShowWarning("لا توجد كروت محددة أو معروضة لطباعتها.");
+            return;
+        }
+
+        if (!_featureAuthorizationService.CanExecute(FeatureId.VoucherPrinting, idsToFetch.Count))
         {
             _notificationService.ShowError($"لا يمكن طباعة أكثر من {SecurityConfiguration.MaxFreeVouchersLimit} كرت في النسخة المجانية. يرجى تفعيل البرنامج.");
             return;
@@ -1263,16 +1470,14 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
 
         await ExecuteBusyAsync(async (token) =>
         {
-            // [C-1 FIX] استخدام _dbFactory المحقون بدلاً من ServiceProvider
             IReadOnlyList<VoucherDto> selected;
-            var selectedIds = SelectedVoucherIds.ToList();
 
             using var db = await _dbFactory.CreateDbContextAsync(token);
             selected = await db.Vouchers
                 .IgnoreQueryFilters()
                 .Include(v => v.Agent)
                 .AsNoTracking()
-                .Where(v => selectedIds.Contains(v.Id))
+                .Where(v => idsToFetch.Contains(v.Id))
                 .Select(v => new VoucherDto
                 {
                     Id         = v.Id,
@@ -1287,14 +1492,99 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
 
             if (selected.Count == 0) return;
 
-            var settings = new PrintSettingsDto();
-            var result = await _printService.GeneratePdfAsync(new List<VoucherDto>(selected), settings, token);
+            Guid? effectiveTemplateId = null;
+
+            // 1. فحص ما إذا كانت باقة الكروت تحتوي على قالب طباعة مخصص
+            var firstProfileName = selected.FirstOrDefault(v => !string.IsNullOrEmpty(v.Profile))?.Profile;
+            if (!string.IsNullOrEmpty(firstProfileName))
+            {
+                var routerId = _activeRouterContext.CurrentRouterId ?? Guid.Empty;
+                var profile = await db.Profiles.FirstOrDefaultAsync(p => p.Name == firstProfileName && p.RouterId == routerId, token);
+                if (profile != null && profile.TemplateId.HasValue && profile.TemplateId.Value != Guid.Empty)
+                {
+                    effectiveTemplateId = profile.TemplateId.Value;
+                }
+            }
+
+            // 2. البديل الثاني: القالب المحدد أخيراً في إعدادات التوليد
+            if (!effectiveTemplateId.HasValue)
+            {
+                var lastSavedTemplateIdStr = _settingsService.Get("Print.LastGenerateTemplateId", string.Empty);
+                if (Guid.TryParse(lastSavedTemplateIdStr, out var lastGuid) && lastGuid != Guid.Empty)
+                {
+                    effectiveTemplateId = lastGuid;
+                }
+            }
+
+            // 3. البديل الثالث: القالب الأساسي للنظام
+            if (!effectiveTemplateId.HasValue)
+            {
+                var primarySysTid = await _templateService.GetPrimarySystemTemplateIdAsync();
+                if (primarySysTid != Guid.Empty)
+                {
+                    effectiveTemplateId = primarySysTid;
+                }
+            }
+
+            var settings = new PrintSettingsDto
+            {
+                CompressOutput = true,
+                ImageQuality = 45,
+                MaxImageSidePx = 400
+            };
+
+            if (effectiveTemplateId.HasValue)
+            {
+                settings.CustomTemplateId = effectiveTemplateId.Value;
+            }
+
+            var result = await _printService.GeneratePdfAsync(new List<VoucherDto>(selected), settings, cancellationToken: token);
 
             if (result.IsSuccess)
             {
-                string tempFileName = $"luxcard_selected_{DateTime.Now:HHmmss}.pdf";
-                await _printPreviewService.PreviewPdfAsync(result.Value, tempFileName, token);
-                _logger.LogInformation("تم فتح PDF لـ {Count} كرت", selected.Count);
+                var saveFileDialog = new Microsoft.Win32.SaveFileDialog
+                {
+                    Title = "حفظ ملف PDF الكروت للطباعة",
+                    Filter = "ملفات PDF (*.pdf)|*.pdf",
+                    DefaultExt = "pdf",
+                    FileName = $"LuxCard_Vouchers_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
+                };
+
+                string targetPath;
+                if (saveFileDialog.ShowDialog() == true)
+                {
+                    targetPath = saveFileDialog.FileName;
+                }
+                else
+                {
+                    targetPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"luxcard_selected_{DateTime.Now:HHmmss}.pdf");
+                }
+
+                await System.IO.File.WriteAllBytesAsync(targetPath, result.Value, token);
+                await _printPreviewService.PreviewPdfAsync(result.Value, targetPath, token);
+                _notificationService.ShowSuccess($"تم حفظ وتوليد PDF لـ {selected.Count} كرت بنجاح في:\n{targetPath}");
+
+                // تحديث حالة الطباعة في قاعدة البيانات وفي الكروت المعروضة
+                try
+                {
+                    var selectedIds = selected.Select(v => v.Id).ToList();
+                    await using var printDbContext = await _dbFactory.CreateDbContextAsync(token);
+                    var dbVouchers = await printDbContext.Vouchers.Where(v => selectedIds.Contains(v.Id)).ToListAsync(token);
+                    foreach (var dbV in dbVouchers)
+                    {
+                        dbV.PrintStatus = MikroTikVoucherPrinter.Domain.Enums.VoucherPrintStatus.Printed;
+                    }
+                    await printDbContext.SaveChangesAsync(token);
+
+                    foreach (var item in selected)
+                    {
+                        item.PrintStatus = MikroTikVoucherPrinter.Domain.Enums.VoucherPrintStatus.Printed;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "فشل تحديث حالة الطباعة للكروت في قاعدة البيانات");
+                }
             }
             else
             {
@@ -1372,7 +1662,7 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
             await _dispatcherService.InvokeAsync(() =>
             {
                 var routerName = _activeRouterContext.CurrentRouter?.DisplayName ?? "—";
-                var window = new Views.UserReportWindow(v.Username, dbPath, routerName, leases);
+                var window = new Views.UserReportWindow(v.Username, dbPath, routerName, leases, v);
                 window.Owner = System.Windows.Application.Current.MainWindow;
                 window.ShowDialog();
             });
@@ -1562,7 +1852,8 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
                 _activeRouterContext,
                 _shellState,
                 _logger,
-                _featureAuthorizationService);
+                _featureAuthorizationService,
+                _profileService);
             var mainWin = System.Windows.Application.Current.Windows.OfType<System.Windows.Window>().FirstOrDefault(w => w is Lux.Management.Console.MainWindow);
             if (mainWin != null && mainWin != dialog)
             {
@@ -1581,5 +1872,313 @@ public partial class VoucherManagementViewModel : ViewModelBase, IActivatable
         // TODO: تنفيذ وظيفة تصدير الكروت المحددة
         _logger.LogInformation("ℹ️ ExportSelected — لم يُنفّذ بعد");
         return Task.CompletedTask;
+    }
+
+    private async Task ToggleFavoriteAsync(VoucherDto? voucherParam)
+    {
+        var target = voucherParam ?? SelectedVoucher;
+        if (target == null)
+        {
+            _notificationService.ShowWarning("يرجى تحديد كرت أولاً لإضافته أو إزالته من المفضلة.");
+            return;
+        }
+
+        SelectedVoucher = target;
+
+        try
+        {
+            bool newFavoriteState = !target.IsFavorite;
+
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var activeRouterId = _activeRouterContext.CurrentRouterId ?? Guid.Empty;
+            var entity = await db.Vouchers.IgnoreQueryFilters().FirstOrDefaultAsync(v => v.Id == target.Id);
+            
+            if (entity == null && !string.IsNullOrEmpty(target.Username))
+            {
+                entity = await db.Vouchers.IgnoreQueryFilters().FirstOrDefaultAsync(v => v.Username == target.Username && v.RouterId == activeRouterId);
+            }
+
+            if (entity != null)
+            {
+                entity.IsFavorite = newFavoriteState;
+                await db.SaveChangesAsync();
+            }
+            else if (activeRouterId != Guid.Empty && !string.IsNullOrEmpty(target.Username))
+            {
+                entity = new MikroTikVoucherPrinter.Domain.Entities.Voucher
+                {
+                    Id = target.Id != Guid.Empty ? target.Id : Guid.NewGuid(),
+                    Username = target.Username,
+                    Password = target.Password ?? "",
+                    ProfileName = target.Profile ?? "",
+                    Price = target.Price,
+                    Status = target.Status,
+                    IsFavorite = newFavoriteState,
+                    RouterId = activeRouterId,
+                    VoucherSource = MikroTikVoucherPrinter.Domain.Enums.VoucherSource.ImportedFromRouter,
+                    CreatedAt = target.CreatedAt != default ? target.CreatedAt : DateTime.UtcNow
+                };
+                db.Vouchers.Add(entity);
+                await db.SaveChangesAsync();
+            }
+
+            target.IsFavorite = newFavoriteState;
+
+            if (newFavoriteState)
+            {
+                _notificationService.ShowSuccess($"تمت إضافة الكرت ({target.Username}) إلى المفضلة ⭐");
+            }
+            else
+            {
+                _notificationService.ShowInformation($"تمت إزالة الكرت ({target.Username}) من المفضلة ⭐");
+            }
+
+            if (_stateTracker.FilterStatus is "Favorite" or "المفضلة")
+            {
+                await RefreshCurrentQueryAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "فشل تغيير حالة المفضلة للكرت {Username}", target.Username);
+            _notificationService.ShowError($"حدث خطأ أثناء تغيير حالة المفضلة: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task RechargeVoucherAsync(VoucherDto? voucher)
+    {
+        var target = voucher ?? SelectedVoucher;
+        if (target == null)
+        {
+            _notificationService.ShowWarning("يرجى تحديد كرت أولاً لعملية إعادة الشحن.", "تنبيه");
+            return;
+        }
+
+        // 1. جلب قائمة الباقات المتاحة
+        List<string> availableProfiles = new();
+        try
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            availableProfiles = await db.Profiles
+                .Select(p => p.Name)
+                .Distinct()
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "تعذر جلب الباقات من قاعدة البيانات المحلية");
+        }
+
+        if (availableProfiles.Count == 0 && ProfileFilters.Count > 1)
+        {
+            availableProfiles = ProfileFilters.Where(p => p != "كل الباقات").ToList();
+        }
+
+        // 2. عرض مربع حوار اختيار الباقة
+        var dialog = new SelectProfileDialog(
+            "⚡ إعادة شحن الكرت",
+            target.Username,
+            availableProfiles,
+            target.Profile)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+
+        if (dialog.ShowDialog() != true || string.IsNullOrEmpty(dialog.SelectedProfileName))
+        {
+            return;
+        }
+
+        string selectedProfile = dialog.SelectedProfileName;
+
+        // 3. التنفيذ على الراوتر وقاعدة البيانات
+        await ExecuteBusyAsync(async (token) =>
+        {
+            try
+            {
+                // محاولة تفعيل الباقة في المايكروتك يوزر مانجر v6
+                var res = await _routerService.ExecuteCommandAsync(
+                    "/tool/user-manager/user/create-and-activate-profile",
+                    new Dictionary<string, string>
+                    {
+                        { "customer", "admin" },
+                        { "user", target.Username },
+                        { "profile", selectedProfile }
+                    }, token);
+
+                if (!res.Success)
+                {
+                    // محاولة تفعيل الباقة في المايكروتك يوزر مانجر v7
+                    await _routerService.ExecuteCommandAsync(
+                        "/user-manager/user/profile/add",
+                        new Dictionary<string, string>
+                        {
+                            { "user", target.Username },
+                            { "profile", selectedProfile }
+                        }, token);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "تنبيه أثناء تنفيذ أمر إعادة الشحن على الراوتر للكرت {Username}", target.Username);
+            }
+
+            // 4. تحديث سجل الكرت محلياً في قاعدة البيانات
+            try
+            {
+                await using var db = await _dbFactory.CreateDbContextAsync(token);
+                var entity = await db.Vouchers.FirstOrDefaultAsync(v => v.Username == target.Username, token);
+                if (entity != null)
+                {
+                    entity.ProfileName = selectedProfile;
+                    entity.BytesUsed = 0;
+                    entity.DownloadUsedBytes = 0;
+                    entity.UploadUsedBytes = 0;
+                    entity.UptimeUsedSeconds = 0;
+                    entity.IsDisabled = false;
+                    entity.UpdatedAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync(token);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "خطأ أثناء تحديث سجل الكرت محلياً {Username}", target.Username);
+            }
+
+            // 5. تحديث الكائن المعروض في الشاشة
+            target.Profile = selectedProfile;
+            target.QuotaUsedBytes = 0;
+            target.IsDisabled = false;
+
+            await _dispatcherService.InvokeAsync(() =>
+            {
+                _notificationService.ShowSuccess(
+                    $"✅ تم إعادة شحن الكرت ({target.Username}) بنجاح بباقة ({selectedProfile}).",
+                    "إعادة شحن الكرت");
+            });
+
+            await RefreshCurrentQueryAsync();
+        }, $"جارٍ إعادة شحن الكرت ({target.Username})...");
+    }
+
+    [RelayCommand]
+    private async Task RecreateVoucherAsync(VoucherDto? voucher)
+    {
+        var target = voucher ?? SelectedVoucher;
+        if (target == null)
+        {
+            _notificationService.ShowWarning("يرجى تحديد كرت أولاً لعملية إعادة الإنشاء.", "تنبيه");
+            return;
+        }
+
+        // 1. جلب قائمة الباقات المتاحة
+        List<string> availableProfiles = new();
+        try
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            availableProfiles = await db.Profiles
+                .Select(p => p.Name)
+                .Distinct()
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "تعذر جلب الباقات من قاعدة البيانات المحلية");
+        }
+
+        if (availableProfiles.Count == 0 && ProfileFilters.Count > 1)
+        {
+            availableProfiles = ProfileFilters.Where(p => p != "كل الباقات").ToList();
+        }
+
+        // 2. عرض مربع حوار اختيار الباقة
+        var dialog = new SelectProfileDialog(
+            "🔄 إعادة إنشاء الكرت",
+            target.Username,
+            availableProfiles,
+            target.Profile)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+
+        if (dialog.ShowDialog() != true || string.IsNullOrEmpty(dialog.SelectedProfileName))
+        {
+            return;
+        }
+
+        string selectedProfile = dialog.SelectedProfileName;
+
+        // 3. التنفيذ (حذف ثم إعادة إنشاء الكرت)
+        await ExecuteBusyAsync(async (token) =>
+        {
+            try
+            {
+                // أولاً: حذف المستخدم من المايكروتك يوزر مانجر
+                await _routerService.ExecuteCommandAsync(
+                    "/tool/user-manager/user/remove",
+                    new Dictionary<string, string> { { "numbers", target.Username } }, token);
+
+                // ثانياً: إعادة إنشاء المستخدم في المايكروتك يوزر مانجر
+                await _routerService.ExecuteCommandAsync(
+                    "/tool/user-manager/user/add",
+                    new Dictionary<string, string>
+                    {
+                        { "customer", "admin" },
+                        { "username", target.Username },
+                        { "password", target.Password ?? target.Username }
+                    }, token);
+
+                // ثالثاً: إضافة وتفعيل الباقة للمستخدم
+                await _routerService.ExecuteCommandAsync(
+                    "/tool/user-manager/user/create-and-activate-profile",
+                    new Dictionary<string, string>
+                    {
+                        { "customer", "admin" },
+                        { "user", target.Username },
+                        { "profile", selectedProfile }
+                    }, token);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "تنبيه أثناء تنفيذ أمر إعادة إنشاء الكرت على الراوتر {Username}", target.Username);
+            }
+
+            // 4. تحديث سجل الكرت محلياً في قاعدة البيانات
+            try
+            {
+                await using var db = await _dbFactory.CreateDbContextAsync(token);
+                var entity = await db.Vouchers.FirstOrDefaultAsync(v => v.Username == target.Username, token);
+                if (entity != null)
+                {
+                    entity.ProfileName = selectedProfile;
+                    entity.BytesUsed = 0;
+                    entity.DownloadUsedBytes = 0;
+                    entity.UploadUsedBytes = 0;
+                    entity.UptimeUsedSeconds = 0;
+                    entity.IsDisabled = false;
+                    entity.UpdatedAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync(token);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "خطأ أثناء تحديث سجل الكرت محلياً {Username}", target.Username);
+            }
+
+            // 5. تحديث الكائن المعروض في الشاشة
+            target.Profile = selectedProfile;
+            target.QuotaUsedBytes = 0;
+            target.IsDisabled = false;
+
+            await _dispatcherService.InvokeAsync(() =>
+            {
+                _notificationService.ShowSuccess(
+                    $"✅ تم إعادة إنشاء الكرت ({target.Username}) بنجاح بالباقة ({selectedProfile}).",
+                    "إعادة إنشاء الكرت");
+            });
+
+            await RefreshCurrentQueryAsync();
+        }, $"جارٍ إعادة إنشاء الكرت ({target.Username})...");
     }
 }

@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using iText.IO.Image;
 using iText.Kernel.Font;
@@ -15,33 +17,35 @@ public abstract class BaseVoucherTemplate : IPrintTemplate
 {
     public abstract string TemplateName { get; }
 
-    public abstract void LayoutDocument(Document document, System.Collections.Generic.List<VoucherDto> vouchers, PrintSettingsDto settings, PdfFont arabicFont);
+    public abstract void LayoutDocument(
+        Document document,
+        List<VoucherDto> vouchers,
+        PrintSettingsDto settings,
+        PdfFont arabicFont,
+        IProgress<(int currentPage, int totalPages, string statusText)>? progress = null);
 
-    protected ImageData GetCachedLogo(PrintSettingsDto settings)
+    protected ImageData? GetCachedLogo(PrintSettingsDto settings)
     {
         if (string.IsNullOrWhiteSpace(settings.CompanyLogoPath) || !File.Exists(settings.CompanyLogoPath))
             return null;
 
         try
         {
-            // ط¥ط¹ط§ط¯ط© ط§ط³طھط؛ظ„ط§ظ„ ط§ظ„ظ€ ImageData ظٹط­ظ…ظٹ ط§ظ„ط°ط§ظƒط±ط© ظˆظٹط¬ط¹ظ„ ط§ظ„ظ€ PDF ط®ظپظٹظپط§ظ‹ ط¬ط¯ط§ظ‹ ظ…ظ‡ظ…ط§ طھظƒط±ط±طھ ط§ظ„طµظˆط±ط©
             return ImageDataFactory.Create(settings.CompanyLogoPath);
         }
         catch
         {
-            return null; // Fallback ط¥ط°ط§ ظƒط§ظ† ظ…ظ„ظپ ط§ظ„طµظˆط±ط© ظ…ط¹ط·ظˆط¨ط§ظ‹
+            return null;
         }
     }
 
-    protected void BuildVoucherContent(object container, VoucherDto v, PrintSettingsDto settings, ImageData cachedLogoData)
+    protected void BuildVoucherContent(object container, VoucherDto v, PrintSettingsDto settings, ImageData? cachedLogoData)
     {
-        // ط¥ط¶ط§ظپط© ط§ظ„ط´ط¹ط§ط± ط¥ط°ط§ ظˆظڈط¬ط¯
         if (cachedLogoData != null)
         {
-            // ط¥ظ†ط´ط§ط، instance ط¬ط¯ظٹط¯ط© طھط¹طھظ…ط¯ ط¹ظ„ظ‰ ظ†ظپط³ ×”ظ€ ImageData ظ„طھظˆظپط± ط§ظ„ط°ط§ظƒط±ط©
             var img = new Image(cachedLogoData)
                 .SetHorizontalAlignment(HorizontalAlignment.CENTER)
-                .SetWidth(60); // Optimize size
+                .SetWidth(60);
             AddElement(container, img);
         }
         else if (!string.IsNullOrEmpty(settings.CompanyName))
@@ -53,7 +57,6 @@ public abstract class BaseVoucherTemplate : IPrintTemplate
             AddElement(container, header);
         }
 
-        // ط§ظ„طھظپط§طµظٹظ„ ط§ظ„ط£ط³ط§ط³ظٹط©
         var userText = new Paragraph()
             .SetMarginTop(5)
             .SetMarginBottom(5)
@@ -61,25 +64,24 @@ public abstract class BaseVoucherTemplate : IPrintTemplate
 
         if (v.CredentialMode == CredentialMode.UsernameOnly)
         {
-            userText.Add(new Text($"ط§ظ„ظ…ط³طھط®ط¯ظ…: {v.Username}\n"))
-                    .Add(new Text($"(ط¨ط¯ظˆظ† ظƒظ„ظ…ط© ط³ط±)\n"));
+            userText.Add(new Text($"المستخدم: {v.Username}\n"))
+                    .Add(new Text($"(بدون كلمة سر)\n"));
         }
         else if (v.CredentialMode == CredentialMode.UsernameEqualsPassword)
         {
-            userText.Add(new Text($"ط§ظ„ظ…ط³طھط®ط¯ظ…: {v.Username}\n"))
-                    .Add(new Text($"ط§ظ„ظ…ط±ظˆط± = ط§ظ„ظ…ط³طھط®ط¯ظ…\n"));
+            userText.Add(new Text($"المستخدم: {v.Username}\n"))
+                    .Add(new Text($"المرور = المستخدم\n"));
         }
         else
         {
-            userText.Add(new Text($"ط§ظ„ظ…ط³طھط®ط¯ظ…: {v.Username}\n"))
-                    .Add(new Text($"ط§ظ„ظ…ط±ظˆط±: {v.Password}\n"));
+            userText.Add(new Text($"المستخدم: {v.Username}\n"))
+                    .Add(new Text($"المرور: {v.Password}\n"));
         }
         
-        userText.Add(new Text($"ط§ظ„ط³ط±ط¹ط©: {v.Profile}\n"))
-                .Add(new Text($"ط§ظ„ط³ط¹ط±: {v.Price}"));
+        userText.Add(new Text($"السرعة: {v.Profile}\n"))
+                .Add(new Text($"السعر: {v.Price}"));
         AddElement(container, userText);
 
-        // ط¥ط¶ط§ظپط© ط±ظ…ط² ط§ظ„ظ€ QR ظ…ط¹ ط¯ط¹ظ…ظ‡ ظ„ظ„ظ€ Token-based login ظˆ CredentialMode
         if (settings.ShowQrCode)
         {
             string loginUri;
@@ -112,7 +114,6 @@ public abstract class BaseVoucherTemplate : IPrintTemplate
             AddElement(container, img);
         }
 
-        // ط§ظ„طھط°ظٹظٹظ„ ط§ظ„ظ…ط®طµطµ
         if (!string.IsNullOrEmpty(settings.FooterText))
         {
             var footer = new Paragraph(settings.FooterText)

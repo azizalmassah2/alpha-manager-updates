@@ -27,5 +27,8 @@ public enum FeatureId
     HotspotLoginEditor,
 
     /// <summary>سجلات الأخطاء المتقدمة والتدقيق (Advanced Logs)</summary>
-    AdvancedLogs
+    AdvancedLogs,
+
+    /// <summary>صيانة النظام والراوتر وإعادة بناء قاعدة البيانات (System Maintenance)</summary>
+    SystemMaintenance
 }

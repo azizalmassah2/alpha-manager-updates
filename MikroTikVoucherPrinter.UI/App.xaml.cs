@@ -71,12 +71,14 @@ public partial class App : System.Windows.Application
                 services.AddTransient<ProfileManagementViewModel>();
                 services.AddTransient<AgentManagementViewModel>();
                 services.AddTransient<TemplateManagementViewModel>();
+                services.AddTransient<BatchManagementViewModel>();
                 services.AddTransient<DbExplorerViewModel>();
 
                 // النوافذ
                 services.AddSingleton<MainWindow>();
                 services.AddTransient<Views.LoginWindow>();
                 services.AddTransient<Views.Pages.TemplateManagementPage>();
+                services.AddTransient<Views.Pages.BatchManagementPage>();
 
             })
             .Build();
@@ -181,6 +183,9 @@ public partial class App : System.Windows.Application
                 await dbContext.Database.EnsureCreatedAsync();
                 await LuxCardSqliteSchemaUpgrade.ApplyAsync(dbContext, dbLogger);
                 await BuiltInTemplateSeeder.EnsureSeedAsync(dbContext, dbLogger);
+
+                var batchMigration = scope.ServiceProvider.GetRequiredService<Infrastructure.Services.BatchMigrationService>();
+                await batchMigration.MigrateIfNeededAsync();
             }
             catch (Exception ex)
             {
@@ -191,6 +196,7 @@ public partial class App : System.Windows.Application
             var navigationService = _host.Services.GetRequiredService<NavigationService>();
             navigationService.RegisterPage<DashboardViewModel>("Dashboard");
             navigationService.RegisterPage<GenerateVoucherViewModel>("Generate");
+            navigationService.RegisterPage<BatchManagementViewModel>("BatchManagement");
             navigationService.RegisterPage<VoucherManagementViewModel>("Management");
             navigationService.RegisterPage<SyncViewModel>("Sync");
             navigationService.RegisterPage<PrintCenterViewModel>("Print");

@@ -7,6 +7,9 @@ namespace MikroTikVoucherPrinter.Application.DTOs;
 /// </summary>
 public record SalesQueryParameters
 {
+    /// <summary>معرف الراوتر الحالي</summary>
+    public Guid? RouterId { get; set; }
+
     /// <summary>مسار قاعدة بيانات User Manager للراوتر الحالي</summary>
     public string RouterDbPath { get; set; } = string.Empty;
 

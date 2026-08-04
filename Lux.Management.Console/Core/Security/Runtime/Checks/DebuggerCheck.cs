@@ -25,9 +25,11 @@ public class DebuggerCheck : IDebuggerCheck
 
     public void Execute()
     {
+#if !DEBUG
         if (_antiTamperService.DetectDebugger())
         {
             throw new CryptographicException("Debugger detected active in program memory.");
         }
+#endif
     }
 }

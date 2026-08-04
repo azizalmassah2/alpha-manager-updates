@@ -289,7 +289,7 @@ public partial class PrintCenterViewModel : BaseViewModel
         await ExecuteBusyAsync(async (token) =>
         {
             var result = await _printService.GeneratePdfAsync(
-                new List<VoucherDto>(visible), Settings, token);
+                new List<VoucherDto>(visible), Settings, null, token);
 
             if (result.IsSuccess)
             {

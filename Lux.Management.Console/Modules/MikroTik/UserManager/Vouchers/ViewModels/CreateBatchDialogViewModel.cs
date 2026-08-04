@@ -32,6 +32,7 @@ public partial class CreateBatchDialogViewModel : ObservableObject
     private readonly IActiveRouterContext _activeRouterContext;
     private readonly IShellState _shellState;
     private readonly IFeatureAuthorizationService _featureAuthorizationService;
+    private readonly IProfileService _profileService;
     private readonly ILogger _logger;
 
     private Guid _fallbackSystemTemplateId;
@@ -45,10 +46,12 @@ public partial class CreateBatchDialogViewModel : ObservableObject
     private Agent? _selectedAgent;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CalculatedPagesCount))]
     private PrintTemplatePickOption? _selectedPrintTemplateOption;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TotalPrice))]
+    [NotifyPropertyChangedFor(nameof(CalculatedPagesCount))]
     private int _count = 100;
 
     [ObservableProperty]
@@ -56,7 +59,7 @@ public partial class CreateBatchDialogViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowPasswordLength))]
-    private CredentialMode _selectedCredentialMode = CredentialMode.UsernameEqualsPassword;
+    private CredentialMode _selectedCredentialMode = CredentialMode.UsernameOnly;
 
     [ObservableProperty]
     private CharacterMode _selectedCharacterMode = CharacterMode.DigitsOnly;
@@ -80,7 +83,10 @@ public partial class CreateBatchDialogViewModel : ObservableObject
     private bool _autoSyncAfterGenerate = true;
 
     [ObservableProperty]
-    private bool _printAfterGenerate = false;
+    private bool _printAfterGenerate = true;
+
+    [ObservableProperty]
+    private string? _customSavePath;
 
     [ObservableProperty]
     private bool _isGenerating;
@@ -100,12 +106,36 @@ public partial class CreateBatchDialogViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasResult;
 
+    // [FIX-C] حالة الاتصال المرئية داخل الـ Dialog
+    [ObservableProperty]
+    private string _connectionStatusMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isConnectionLost = false;
+
     public ObservableCollection<Profile> Profiles { get; } = new();
     public ObservableCollection<Agent> Agents { get; } = new();
     public ObservableCollection<PrintTemplatePickOption> PrintTemplateOptions { get; } = new();
 
     public decimal TotalPrice => Count * Price;
     public bool ShowPasswordLength => SelectedCredentialMode == CredentialMode.UsernameAndPassword;
+
+    public int CalculatedPagesCount
+    {
+        get
+        {
+            int cols = 3;
+            int rows = 7;
+            var t = SelectedPrintTemplateOption?.Source;
+            if (t != null)
+            {
+                cols = t.Columns > 0 ? t.Columns : 3;
+                rows = t.Rows > 0 ? t.Rows : 7;
+            }
+            int perPage = cols * rows;
+            return perPage > 0 ? (int)Math.Ceiling((double)Count / perPage) : 0;
+        }
+    }
 
     public CreateBatchDialogViewModel(
         IDbContextFactory<LuxCardDbContext> dbFactory,
@@ -116,7 +146,8 @@ public partial class CreateBatchDialogViewModel : ObservableObject
         IActiveRouterContext activeRouterContext,
         IShellState shellState,
         ILogger logger,
-        IFeatureAuthorizationService featureAuthorizationService)
+        IFeatureAuthorizationService featureAuthorizationService,
+        IProfileService profileService)
     {
         _dbFactory = dbFactory;
         _syncService = syncService;
@@ -127,8 +158,34 @@ public partial class CreateBatchDialogViewModel : ObservableObject
         _shellState = shellState;
         _featureAuthorizationService = featureAuthorizationService;
         _logger = logger;
+        _profileService = profileService;
 
         GenerateBulkCommand = new AsyncRelayCommand(GenerateBulkAsync, () => !IsGenerating);
+
+        // [FIX-C] الاشتراك في حدث تغيير حالة الاتصال
+        _activeRouterContext.ActiveRouterChanged += OnRouterConnectionChanged;
+    }
+
+    // [FIX-C] معالج انقطاع/عودة الاتصال أثناء عمل الـ Dialog
+    private void OnRouterConnectionChanged(object? sender, EventArgs e)
+    {
+        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        {
+            if (!_activeRouterContext.IsConnected)
+            {
+                IsConnectionLost = true;
+                ConnectionStatusMessage = "⚠️ انقطع الاتصال بالراوتر!";
+                if (IsGenerating)
+                {
+                    StatusMessage = "⚠️ انقطع الاتصال بالراوتر أثناء المزامنة - الكروت محفوظة محلياً";
+                }
+            }
+            else
+            {
+                IsConnectionLost = false;
+                ConnectionStatusMessage = string.Empty;
+            }
+        });
     }
 
     public async Task InitializeAsync()
@@ -138,8 +195,29 @@ public partial class CreateBatchDialogViewModel : ObservableObject
             var routerId = _activeRouterContext.CurrentRouterId ?? Guid.Empty;
             using var db = await _dbFactory.CreateDbContextAsync();
 
-            // Load profiles
-            var profilesList = await db.Profiles.Where(p => p.RouterId == routerId).ToListAsync();
+            // Load profiles via IProfileService
+            IReadOnlyList<Profile> profilesList = new List<Profile>();
+            try
+            {
+                profilesList = await _profileService.GetAllProfilesAsync(PackageSourceType.UserManager);
+                if (profilesList.Count == 0)
+                {
+                    profilesList = await _profileService.GetAllProfilesAsync(PackageSourceType.Hotspot);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch live profiles via ProfileService, falling back to local DB");
+            }
+
+            if (profilesList.Count == 0)
+            {
+                profilesList = await db.Profiles
+                    .IgnoreQueryFilters()
+                    .Where(p => p.RouterId == routerId || routerId == Guid.Empty)
+                    .ToListAsync();
+            }
+
             Profiles.Clear();
             foreach (var p in profilesList)
             {
@@ -147,8 +225,12 @@ public partial class CreateBatchDialogViewModel : ObservableObject
             }
             SelectedProfile = Profiles.FirstOrDefault();
 
-            // Load agents
-            var agentsList = await db.Agents.Where(a => a.RouterId == routerId && !a.IsDeleted).ToListAsync();
+            // Load agents strictly for current router
+            var agentsList = await db.Agents
+                .IgnoreQueryFilters()
+                .Where(a => a.RouterId == routerId && !a.IsDeleted)
+                .ToListAsync();
+
             Agents.Clear();
             foreach (var a in agentsList)
             {
@@ -212,7 +294,26 @@ public partial class CreateBatchDialogViewModel : ObservableObject
             if (match != null)
             {
                 SelectedPrintTemplateOption = match;
+                return;
             }
+        }
+        var defaultOpt = PrintTemplateOptions.FirstOrDefault(o => o.IsProfileDefaultChoice);
+        if (defaultOpt != null) SelectedPrintTemplateOption = defaultOpt;
+    }
+
+    [RelayCommand]
+    private void BrowseCustomSavePath()
+    {
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "اختر مسار حفظ ملف PDF الطباعة",
+            Filter = "ملفات PDF (*.pdf)|*.pdf",
+            DefaultExt = "pdf",
+            FileName = $"LuxCard_Batch_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
+        };
+        if (dlg.ShowDialog() == true)
+        {
+            CustomSavePath = dlg.FileName;
         }
     }
 
@@ -304,7 +405,7 @@ public partial class CreateBatchDialogViewModel : ObservableObject
                 Id = batchId,
                 Name = $"دفعة {DateTime.Now:yyyy-MM-dd HH:mm}",
                 ProfileName = SelectedProfile.Name,
-                TotalCount = Count,
+                TotalCards = Count,
                 RouterId = routerId
             };
 
@@ -338,9 +439,10 @@ public partial class CreateBatchDialogViewModel : ObservableObject
                     CreatedBy = "System Sweep"
                 });
 
-                ProgressCurrent = i + 1;
+                ProgressCurrent = (int)Math.Max(1, Math.Round((i + 1.0) / Count * (Count * 0.15)));
             }
 
+            ProgressCurrent = (int)(Count * 0.15);
             StatusMessage = "💾 جاري حفظ الكروت في قاعدة البيانات...";
             
             using (var db = await _dbFactory.CreateDbContextAsync())
@@ -370,7 +472,7 @@ public partial class CreateBatchDialogViewModel : ObservableObject
 
                 if (finalInsertList.Count > 0)
                 {
-                    newBatch.TotalCount = finalInsertList.Count;
+                    newBatch.TotalCards = finalInsertList.Count;
                     db.Batches.Add(newBatch);
                     db.Vouchers.AddRange(finalInsertList);
                     await db.SaveChangesAsync();
@@ -391,24 +493,89 @@ public partial class CreateBatchDialogViewModel : ObservableObject
                 _settingsService.Set("Print.LastGenerateTemplateId", string.Empty);
             await _settingsService.SaveAsync();
 
-            // Sync to Router
+            // Phase 2: Sync to Router (15% -> 65%)
+            bool syncCompletelyFailed = false;
+            bool hasSyncFailures = false;
+
             if (AutoSyncAfterGenerate && list.Count > 0)
             {
-                StatusMessage = "🔄 جاري المزامنة مع المايكروتك...";
-                var syncResult = await _syncService.ProcessBatchAsync(batchId, null, CancellationToken.None);
-                ResultMessage += $"\n🔄 المزامنة: نجح {syncResult.Success} | فشل {syncResult.Failed}";
+                // [FIX-C] Pre-flight check: فحص الاتصال قبل بدء المزامنة
+                if (!_activeRouterContext.IsConnected)
+                {
+                    StatusMessage = "⚠️ الراوتر غير متصل - الكروت محفوظة محلياً وستُزامَن تلقائياً عند عودة الاتصال";
+                    ResultMessage += "\n💾 تم حفظ الكروت محلياً. ستُزامَن مع الراوتر تلقائياً عند عودة الاتصال.";
+                    syncCompletelyFailed = true;
+                    hasSyncFailures = true;
+                }
+                else
+                {
+                    StatusMessage = "🔄 جاري المزامنة مع راوتر مايكروتك...";
+                    var syncProgress = new Progress<(int success, int failed, int total)>(p =>
+                    {
+                        int processed = p.success + p.failed;
+                        double syncRatio = p.total > 0 ? (double)processed / p.total : 1.0;
+                        ProgressCurrent = (int)(Count * 0.15 + syncRatio * (Count * 0.50));
+                        StatusMessage = $"🔄 المزامنة: {processed} من {p.total} (نجح {p.success} | فشل {p.failed})...";
+                    });
+
+                    try
+                    {
+                        var syncResult = await _syncService.ProcessBatchAsync(batchId, syncProgress, CancellationToken.None);
+                        ResultMessage += $"\n🔄 المزامنة: نجح {syncResult.Success} | فشل {syncResult.Failed}";
+
+                        // [FIX-A] إذا فشلت المزامنة جزئياً أو كلياً → احجب PDF وأعلم المستخدم
+                        if (syncResult.Failed > 0 || syncResult.Success < Count)
+                        {
+                            syncCompletelyFailed = true;
+                            hasSyncFailures = true;
+                            StatusMessage = "⚠️ لم تكتمل المزامنة مع الراوتر - تم حجب توليد PDF للحفاظ على سلامة الطباعة";
+                            ResultMessage += $"\n⚠️ تعذر إنشاء ملف PDF لأن الكروت لم تُضف بالكامل للراوتر بعد.";
+                            ResultMessage += "\n💡 يمكنك إعادة محاولة المزامنة ثم الطباعة من شاشة إدارة الكروت عند استقرار الاتصال.";
+                        }
+                    }
+                    catch (Exception syncEx)
+                    {
+                        _logger.LogError(syncEx, "Error during batch sync to MikroTik");
+                        syncCompletelyFailed = true;
+                        hasSyncFailures = true;
+                        StatusMessage = "⚠️ انقطع الاتصال بالراوتر أثناء المزامنة - تم حجب توليد PDF للحفاظ على سلامة الطباعة";
+                        ResultMessage += $"\n⚠️ تعذر استكمال المزامنة مع الراوتر بسبب انقطاع الاتصال: {syncEx.Message}";
+                        ResultMessage += "\n💡 تم حفظ الكروت محلياً، وستُزامَن تلقائياً عند عودة الاتصال.";
+                    }
+                }
             }
 
-            // Print
-            if (PrintAfterGenerate && list.Count > 0)
+            // Phase 3: Print PDF Generation (65% -> 100%)
+            // [FIX-A] PDF تُولَّد فقط إذا تم رفع جميع الكروت للراوتر بنجاح بدون أي فشل
+            if (PrintAfterGenerate && list.Count > 0 && !syncCompletelyFailed)
             {
-                StatusMessage = "🖨️ جاري تحضير ملف الطباعة...";
-                await AutoPrintLastBatchAsync(batchId, CancellationToken.None);
+                StatusMessage = "🖨️ جاري تحضير ملف الطباعة ورسم الصفحات...";
+                int baseProgress = ProgressCurrent;
+                double printWeight = Count - baseProgress;
+
+                var printProgress = new Progress<(int currentPage, int totalPages, string statusText)>(p =>
+                {
+                    double pageRatio = p.totalPages > 0 ? (double)p.currentPage / p.totalPages : 1.0;
+                    ProgressCurrent = (int)(baseProgress + pageRatio * printWeight);
+                    StatusMessage = $"🖨️ {p.statusText}";
+                });
+
+                await AutoPrintLastBatchAsync(batchId, printProgress, CancellationToken.None);
             }
 
-            StatusMessage = "🎉 اكتملت العملية!";
-            await Task.Delay(2000);
-            RequestClose?.Invoke(true);
+            ProgressCurrent = Count;
+            if (hasSyncFailures || syncCompletelyFailed)
+            {
+                StatusMessage = "⚠️ اكتمل توليد الكروت محلياً مع وجود كروت معلقة للمزامنة";
+                HasResult = true;
+                // لا تُغلق النافذة تلقائياً لتتيح للمستخدم قراءة التنبيه والنتائج
+            }
+            else
+            {
+                StatusMessage = "🎉 اكتملت العملية بنجاح!";
+                await Task.Delay(2000);
+                RequestClose?.Invoke(true);
+            }
         }
         catch (Exception ex)
         {
@@ -423,7 +590,10 @@ public partial class CreateBatchDialogViewModel : ObservableObject
         }
     }
 
-    private async Task AutoPrintLastBatchAsync(Guid batchId, CancellationToken cancellationToken)
+    private async Task AutoPrintLastBatchAsync(
+        Guid batchId,
+        IProgress<(int currentPage, int totalPages, string statusText)>? printProgress,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -446,21 +616,38 @@ public partial class CreateBatchDialogViewModel : ObservableObject
 
             if (vouchers.Count == 0) return;
 
-            var settings = new PrintSettingsDto();
+            var settings = new PrintSettingsDto
+            {
+                CompressOutput = true,
+                ImageQuality = 45,
+                MaxImageSidePx = 400
+            };
             var tid = ResolveEffectivePrintTemplateId();
             if (tid.HasValue)
                 settings.CustomTemplateId = tid.Value;
 
-            var pdfResult = await _printService.GeneratePdfAsync(vouchers, settings, cancellationToken);
-            if (pdfResult.IsSuccess)
+            var pdfResult = await _printService.GeneratePdfAsync(vouchers, settings, printProgress, cancellationToken);
+            if (pdfResult.IsSuccess && pdfResult.Value != null && pdfResult.Value.Length > 0)
             {
-                string tempFile = System.IO.Path.Combine(
-                    System.IO.Path.GetTempPath(), $"luxcard_batch_{DateTime.Now:HHmmss}.pdf");
-                await System.IO.File.WriteAllBytesAsync(tempFile, pdfResult.Value, cancellationToken);
-                System.Diagnostics.Process.Start(
-                    new System.Diagnostics.ProcessStartInfo(tempFile) { UseShellExecute = true });
+                string targetPath = !string.IsNullOrWhiteSpace(CustomSavePath)
+                    ? CustomSavePath
+                    : System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"luxcard_batch_{DateTime.Now:HHmmss}.pdf");
 
-                ResultMessage += "\n🖨️ تم فتح ملف الطباعة تلقائياً!";
+                await System.IO.File.WriteAllBytesAsync(targetPath, pdfResult.Value, cancellationToken);
+
+                var fi = new System.IO.FileInfo(targetPath);
+                if (fi.Exists && fi.Length > 0)
+                {
+                    System.Diagnostics.Process.Start(
+                        new System.Diagnostics.ProcessStartInfo(targetPath) { UseShellExecute = true });
+
+                    ResultMessage += $"\n🖨️ تم توليد وحفظ ملف الطباعة بنجاح: {System.IO.Path.GetFileName(targetPath)}";
+                }
+                else
+                {
+                    _logger.LogWarning("PDF file was written but size is zero: {TargetPath}", targetPath);
+                    ResultMessage += "\n⚠️ تعذر فتح ملف الطباعة لأن الحجم غير مكتمل.";
+                }
             }
         }
         catch (Exception ex)

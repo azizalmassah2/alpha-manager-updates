@@ -15,4 +15,5 @@ public interface IAgentService
     Task UpdateAgentAsync(Agent agent, CancellationToken cancellationToken = default);
     Task DeleteAgentAsync(Guid id, CancellationToken cancellationToken = default);
     Task<bool> ToggleActiveAsync(Guid id, CancellationToken cancellationToken = default);
+    Task SettleAgentBalanceAsync(Guid id, decimal amount, string? notes, CancellationToken cancellationToken = default);
 }
