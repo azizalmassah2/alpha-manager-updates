@@ -1,8 +1,0 @@
-﻿<UserControl x:Class="Lux.Management.Console.Modules.Operations.Views.OperationsCenterPage"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             FlowDirection="RightToLeft">
-    <Grid>
-        <TextBlock Text="مركز العمليات" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="24" />
-    </Grid>
-</UserControl>
