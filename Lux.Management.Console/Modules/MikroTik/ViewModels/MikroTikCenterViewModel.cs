@@ -7,6 +7,7 @@ using Lux.Management.Console.Modules.MikroTik.Hotspot.ViewModels;
 using Lux.Management.Console.Modules.MikroTik.UserManager.Vouchers.ViewModels;
 using Lux.Management.Console.Modules.MikroTik.UserManager.Profiles.ViewModels;
 using Lux.Management.Console.Modules.MikroTik.UserManager.Agents.ViewModels;
+using Lux.Management.Console.Modules.MikroTik.UserManager.Batches.ViewModels;
 using Lux.Management.Console.Modules.MikroTik.UserManager.Printing.ViewModels;
 using Lux.Management.Console.Modules.MikroTik.UserManager.Sales;
 using Lux.Management.Console.Modules.MikroTik.Connections.ViewModels;
@@ -47,6 +48,7 @@ namespace Lux.Management.Console.Modules.MikroTik.ViewModels
         public ConnectionsViewModel ConnectionsVM { get; }
         public RouterManagementCenterViewModel RouterManagementCenterVM { get; }
         public VoucherManagementViewModel VouchersVM { get; }
+        public BatchManagementViewModel BatchesVM { get; }
         public SalesViewModel SalesVM { get; }
         public ProfileManagementViewModel ProfilesVM { get; }
         public AgentManagementViewModel AgentsVM { get; }
@@ -148,6 +150,7 @@ namespace Lux.Management.Console.Modules.MikroTik.ViewModels
             if (value.ViewModel != null)
             {
                 CurrentSubPageViewModel = value.ViewModel;
+                _shellState.NotifyCurrentViewModelChanged();
                 UpdateBreadcrumb(value);
 
                 // [PHASE-2] استخدام IActivatable — Lazy Loading آمن وموحد
@@ -215,43 +218,13 @@ namespace Lux.Management.Console.Modules.MikroTik.ViewModels
                 Icon = "👥" 
             };
             userManager.Children.Add(new NavigationNode { Title = "المبيعات",          Icon = "📈", ViewModel = SalesVM,    ParentTitle = "User Manager" });
+            userManager.Children.Add(new NavigationNode { Title = "الدفعات",           Icon = "📦", ViewModel = BatchesVM,  ParentTitle = "User Manager" });
             userManager.Children.Add(new NavigationNode { Title = "الكروت",           Icon = "🎫", ViewModel = VouchersVM,  ParentTitle = "User Manager" });
-            userManager.Children.Add(new NavigationNode { Title = "الباقات",          Icon = "📦", ViewModel = ProfilesVM,  ParentTitle = "User Manager" });
+            userManager.Children.Add(new NavigationNode { Title = "الباقات",          Icon = "⚡", ViewModel = ProfilesVM,  ParentTitle = "User Manager" });
             userManager.Children.Add(new NavigationNode { Title = "الوكلاء",          Icon = "🤝", ViewModel = AgentsVM,    ParentTitle = "User Manager" });
             userManager.Children.Add(new NavigationNode { Title = "الطباعة والقوالب", Icon = "🖨️", ViewModel = TemplatesVM, ParentTitle = "User Manager" });
 
-            // 3. Print Templates
-            var printTemplates = new NavigationNode 
-            { 
-                Title = "قوالب الطباعة", 
-                Description = "تصميم وإعداد إيصالات الدفع والفواتير", 
-                Icon = "🖨️" 
-            };
-            printTemplates.Children.Add(new NavigationNode { Title = "إيصالات الدفع", Icon = "🧾", ViewModel = new PlaceholderViewModel("إيصالات الدفع", "🧾"), ParentTitle = "قوالب الطباعة" });
-            printTemplates.Children.Add(new NavigationNode { Title = "الفواتير",       Icon = "💵", ViewModel = new PlaceholderViewModel("الفواتير", "💵"),     ParentTitle = "قوالب الطباعة" });
-
-            // 4. Network Monitoring (Renamed to VLANs)
-            var netMonitoring = new NavigationNode 
-            { 
-                Title = "الفيلانات (الشبكة)", 
-                Description = "مراقبة الأداء وأجهزة الشبكة الفعالة", 
-                Icon = "📡" 
-            };
-            netMonitoring.Children.Add(new NavigationNode { Title = "الأجهزة",     Icon = "🖥️", ViewModel = new PlaceholderViewModel("الأجهزة", "🖥️"),       ParentTitle = "مراقبة الشبكة" });
-            netMonitoring.Children.Add(new NavigationNode { Title = "التنبيهات",   Icon = "🔔", ViewModel = new PlaceholderViewModel("التنبيهات", "🔔"),     ParentTitle = "مراقبة الشبكة" });
-            netMonitoring.Children.Add(new NavigationNode { Title = "السجلات",     Icon = "📝", ViewModel = new PlaceholderViewModel("السجلات", "📝"),       ParentTitle = "مراقبة الشبكة" });
-            netMonitoring.Children.Add(new NavigationNode { Title = "الإحصائيات", Icon = "📈", ViewModel = new PlaceholderViewModel("الإحصائيات", "📈"),   ParentTitle = "مراقبة الشبكة" });
-
-            // 5. Database Explorer
-            var dbExplorer = new NavigationNode 
-            { 
-                Title = "مستكشف البيانات", 
-                Description = "عرض وتصدير بيانات الجداول المحلية", 
-                Icon = "🗄️", 
-                ViewModel = DbExplorerVM 
-            };
-
-            // 6. Hotspot Login Editor
+            // 3. Hotspot Login Editor
             var hotspotLogin = new NavigationNode
             {
                 Title = "صفحة تسجيل الدخول",
@@ -265,9 +238,6 @@ namespace Lux.Management.Console.Modules.MikroTik.ViewModels
                 routerMgmt,
                 nocNode,
                 userManager,
-                printTemplates,
-                netMonitoring,
-                dbExplorer,
                 hotspotLogin
             };
         }
@@ -280,6 +250,7 @@ namespace Lux.Management.Console.Modules.MikroTik.ViewModels
             ConnectionsViewModel connectionsVM,
             RouterManagementCenterViewModel routerManagementCenterVM,
             VoucherManagementViewModel vouchersVM,
+            BatchManagementViewModel batchesVM,
             SalesViewModel salesVM,
             ProfileManagementViewModel profilesVM,
             AgentManagementViewModel agentsVM,
@@ -296,6 +267,7 @@ namespace Lux.Management.Console.Modules.MikroTik.ViewModels
             ConnectionsVM = connectionsVM;
             RouterManagementCenterVM = routerManagementCenterVM;
             VouchersVM = vouchersVM;
+            BatchesVM = batchesVM;
             SalesVM = salesVM;
             ProfilesVM = profilesVM;
             AgentsVM = agentsVM;

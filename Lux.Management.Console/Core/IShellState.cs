@@ -8,12 +8,18 @@ public interface IShellState : INotifyPropertyChanged
 {
     object? CurrentViewModel { get; set; }
     bool IsRegistered { get; set; }
+    void NotifyCurrentViewModelChanged();
 }
 
 public class ShellState : IShellState
 {
     private object? _currentViewModel;
     private bool _isRegistered = true; // الافتراضي صالح، وسيتم تحديثه عند التحقق
+
+    public void NotifyCurrentViewModelChanged()
+    {
+        OnPropertyChanged(nameof(CurrentViewModel));
+    }
 
     public object? CurrentViewModel
     {

@@ -17,6 +17,8 @@
              xmlns:agentsVm="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Agents.ViewModels"
              xmlns:printingVm="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Printing.ViewModels"
              xmlns:salesVm="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Sales"
+             xmlns:batches="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Batches.Views"
+             xmlns:batchesVm="clr-namespace:Lux.Management.Console.Modules.MikroTik.UserManager.Batches.ViewModels"
              xmlns:routerMgmtVm="clr-namespace:Lux.Management.Console.Modules.MikroTik.RouterManagement.ViewModels"
              xmlns:dbexplorerVm="clr-namespace:Lux.Management.Console.Modules.Settings.ViewModels"
              xmlns:backupsVm="clr-namespace:Lux.Management.Console.Modules.MikroTik.Backups.ViewModels"
@@ -60,6 +62,9 @@
         </DataTemplate>
         <DataTemplate DataType="{x:Type vouchersVm:VoucherManagementViewModel}">
             <vouchers:VoucherManagementPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type batchesVm:BatchManagementViewModel}">
+            <batches:BatchManagementPage/>
         </DataTemplate>
         <DataTemplate DataType="{x:Type salesVm:SalesViewModel}">
             <sales:SalesPage/>
@@ -274,91 +279,8 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <!-- ══ Root Grid: 3 rows, no sidebar columns ══ -->
+    <!-- ══ Root Grid: Full-width content area ══ -->
     <Grid Background="{DynamicResource RegionBrush}">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>   <!-- Row 0: Breadcrumb bar + toggle button -->
-            <RowDefinition Height="Auto"/>   <!-- Row 1: Context Navigation Pill Strip -->
-            <RowDefinition Height="*"/>      <!-- Row 2: Full-width content area -->
-        </Grid.RowDefinitions>
-
-        <!-- ══ Row 0: Breadcrumb bar + toggle button ══ -->
-        <Border Grid.Row="0"
-                Background="{DynamicResource SurfaceBrush}"
-                BorderBrush="{DynamicResource BorderBrush}"
-                BorderThickness="0,0,0,1"
-                Padding="16,10">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <!-- RTL Col 0 = physical RIGHT: toggle button -->
-                    <ColumnDefinition Width="Auto"/>
-                    <!-- RTL Col 1 = physical LEFT: breadcrumb text -->
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-
-                <!-- Toggle button: ☰ الأقسام -->
-                <Button Grid.Column="0"
-                        Command="{Binding ToggleNavPanelCommand}"
-                        Content="☰  الأقسام"
-                        Style="{StaticResource NavToggleButtonStyle}"
-                        Margin="0,0,16,0"/>
-
-                <!-- Breadcrumb text -->
-                <TextBlock Grid.Column="1"
-                           Text="{Binding BreadcrumbText}"
-                           FontSize="13"
-                           Foreground="{DynamicResource SecondaryTextBrush}"
-                           VerticalAlignment="Center"/>
-            </Grid>
-        </Border>
-
-        <!-- ══ Row 1: Context Navigation Pill Strip ══ -->
-        <Border Grid.Row="1"
-                Background="{DynamicResource SurfaceBrush}"
-                BorderBrush="{DynamicResource BorderBrush}"
-                BorderThickness="0,0,0,1"
-                Padding="16,8"
-                Visibility="{Binding IsPillStripVisible, Converter={StaticResource BoolToVis}}">
-            <ListBox ItemsSource="{Binding ActiveSectionPills}"
-                     SelectedItem="{Binding SelectedSubNode, Mode=TwoWay}"
-                     Style="{StaticResource PillListBoxStyle}"/>
-        </Border>
-
-        <!-- ══ Row 2: Full-width content ══ -->
-        <ContentControl Grid.Row="2"
-                        Content="{Binding CurrentSubPageViewModel}"/>
-
-        <!-- ══ On-Demand Navigation Panel Overlay (spans all rows, ZIndex above content) ══ -->
-        <Grid Grid.Row="0" Grid.RowSpan="3"
-              Panel.ZIndex="100"
-              Visibility="{Binding IsNavPanelOpen, Converter={StaticResource BoolToVis}}">
-            <Grid.ColumnDefinitions>
-                <!-- RTL Col 0 = physical RIGHT: the nav panel -->
-                <ColumnDefinition Width="240"/>
-                <!-- RTL Col 1 = physical LEFT: scrim backdrop -->
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- Scrim: click to close panel -->
-            <Border Grid.Column="1" Background="#28000000">
-                <Border.InputBindings>
-                    <MouseBinding MouseAction="LeftClick"
-                                  Command="{Binding CloseNavPanelCommand}"/>
-                </Border.InputBindings>
-            </Border>
-
-            <!-- Workspace Selector Panel -->
-            <Border Grid.Column="0"
-                    Background="{DynamicResource SidebarBrush}"
-                    BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="1,0,1,0"
-                    FlowDirection="LeftToRight"
-                    Padding="0,16">
-                <!-- Displays the 5 main workspace modules with custom icons and descriptions -->
-                <ListBox ItemsSource="{Binding NavigationTree}"
-                         SelectedItem="{Binding SelectedSection, Mode=TwoWay}"
-                         Style="{StaticResource PanelNavListBoxStyle}"/>
-            </Border>
-        </Grid>
+        <ContentControl Content="{Binding CurrentSubPageViewModel}"/>
     </Grid>
 </UserControl>

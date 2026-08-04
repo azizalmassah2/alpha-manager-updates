@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
@@ -31,7 +31,21 @@ public class TypeToBooleanConverter : IValueConverter
         string targetTypeName = parameter.ToString() ?? "";
         string valueTypeName = value.GetType().Name;
 
-        return valueTypeName.Equals(targetTypeName, StringComparison.OrdinalIgnoreCase);
+        if (valueTypeName.Equals(targetTypeName, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // إذا كان الـ ViewModel عبارة عن حاوية مثل MikroTikCenterViewModel، افحص الـ CurrentSubPageViewModel داخله
+        var prop = value.GetType().GetProperty("CurrentSubPageViewModel");
+        if (prop != null)
+        {
+            var subValue = prop.GetValue(value);
+            if (subValue != null && subValue.GetType().Name.Equals(targetTypeName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
