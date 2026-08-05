@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
-  "lastUpdated": "2026-08-04T16:31:00Z",
+  "lastUpdated": "2026-08-06T00:07:00Z",
   "generatedBy": "Alpha Manager Build System",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "updateType": "mandatory",
   "mandatory": true,
   "minimumSupportedVersion": "2.0.5",
-  "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.7/AlphaManagerSetup_v2.0.7.exe",
-  "sha256": "984c407cb63aa74f4396b77aae2af8c4ecf037619e2e041dde5e5722c74d2284",
-  "fileSize": 71666061,
-  "releaseDate": "2026-08-04",
+  "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.8/AlphaManagerSetup_v2.0.8.exe",
+  "sha256": "",
+  "fileSize": 0,
+  "releaseDate": "2026-08-06",
   "releaseNotes": [
-    "منع انبثاق نافذة تحديد مجلد الهوتسبوت تلقائياً في الخلفية عند تبديل الراوتر أو الشاشات وحصرها عند الطلب الصريح.",
-    "إضافة التمييز والتظليل البصري الفوري للشاشة النشطة في القائمة الجانبية (الدفعات، الكروت، الباقات، الوكلاء).",
-    "توحيد واجهة المستخدم واعتماد القائمة الجانبية كشريط الملاحة الرئيسي والوحيد في البرنامج وإزالة شريط الأقسام التكراري."
+    "إصلاح حرج: خطأ SQLite Error 19 (NOT NULL constraint failed: Batches.TotalCount) الذي كان يمنع إنشاء أي دفعة جديدة في جميع الحالات.",
+    "إصلاح حرج: البرنامج لم يكن يعمل بعد حذف قاعدة البيانات المحلية — تم إصلاح عملية إعادة الإنشاء الكاملة.",
+    "تحسين: استقرار وأمان أعلى عند إعادة تهيئة قاعدة البيانات من الصفر."
   ],
-  "message": "تحديث مستقر v2.0.7! تحسينات الملاحة، إضاءة عناصر القائمة الجانبية النشطة، ومنع التنبيهات المنبثقة المزعجة في الخلفية.",
+  "message": "تحديث إلزامي v2.0.8 — إصلاح عاجل لمشكلة حرجة تمنع إنشاء الدفعات وتوقف البرنامج عند حذف قاعدة البيانات.",
   "enabled": true,
   "extendedInfo": {
     "productName": "Alpha Manager",
     "officialName": "Alpha Manager for MikroTik Hotspot",
-    "buildNumber": 207,
+    "buildNumber": 208,
     "channel": "Stable",
     "publisherName": "Alpha Manager Team",
     "company": "LUXCARD",
@@ -40,22 +40,19 @@
       "English"
     ],
     "digitalSignatureStatus": "Self-Signed / Verified Checksum",
-    "buildTimestamp": "2026-08-04T16:31:00Z",
-    "category": "Maintenance Update",
+    "buildTimestamp": "2026-08-06T00:07:00Z",
+    "category": "Critical Hotfix",
     "licenseType": "Commercial / Node-Locked to Router",
     "documentationUrl": "https://docs.alphamanager.app"
   },
   "structuredReleaseNotes": {
-    "additions": [
-      "إضافة آلية التمييز والإضاءة البصرية الفورية للشاشة النشطة في القائمة الجانبية (الدفعات، الكروت، الباقات، الوكلاء)."
-    ],
+    "additions": [],
     "improvements": [
-      "توحيد الواجهة واعتماد القائمة الجانبية كشريط الملاحة الرئيسي والوحيد مع إزالة شريط الأقسام السريعة والدرج المنبثق التكراري.",
-      "تحسين مزامنة إعدادات الهوتسبوت بهدوء في الخلفية وتجنب إزعاج المستخدم بالنوافذ المنبثقة التفاعلية."
+      "تحسين استقرار قاعدة البيانات عند إعادة التهيئة من الصفر — البرنامج يعمل بشكل كامل حتى بعد حذف قاعدة البيانات."
     ],
     "fixes": [
-      "منع انبثاق نافذة تحديد مجلد الهوتسبوت تلقائياً عند تغيير الراوتر أو التبديل بين الشاشات في الخلفية وإظهارها فقط عند طلب المستخدم الصريح.",
-      "إصلاح التفعيل التلقائي للشاشات الفرعية ومزامنتها مع حالة الجلسة IShellState لضمان دقة المؤشرات البصرية."
+      "إصلاح حرج: خطأ SQLite Error 19 (NOT NULL constraint failed: Batches.TotalCount) الذي كان يمنع إنشاء أي دفعة جديدة في جميع الحالات.",
+      "إصلاح حرج: البرنامج لم يكن يعمل بعد حذف قاعدة البيانات المحلية — تم إصلاح عملية إعادة الإنشاء الكاملة."
     ],
     "security": [],
     "breakingChanges": [],
