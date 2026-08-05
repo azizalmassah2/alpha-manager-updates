@@ -7,8 +7,8 @@
   "mandatory": true,
   "minimumSupportedVersion": "2.0.5",
   "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.8/AlphaManagerSetup_v2.0.8.exe",
-  "sha256": "ea9c2592e8770b148f4c05f4b80bf59d93d1e10a1d4dc0329ae49b5ad87a633d",
-  "fileSize": 101996128,
+  "sha256": "cff319e2e34cf6225f834bf8cb71cf01c9f72cc4f73a750caa4a814b06e1dcbc",
+  "fileSize": 102002934,
   "releaseDate": "2026-08-06",
   "releaseNotes": [
     "إصلاح حرج: خطأ SQLite Error 19 (NOT NULL constraint failed: Batches.TotalCount) الذي كان يمنع إنشاء أي دفعة جديدة في جميع الحالات.",
