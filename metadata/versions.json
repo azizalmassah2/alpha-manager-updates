@@ -1,16 +1,37 @@
 {
   "schemaVersion": 1,
-  "lastUpdated": "2026-08-06T00:07:00Z",
+  "lastUpdated": "2026-08-06T01:00:00Z",
   "generatedBy": "Alpha Manager Build System",
   "data": [
+    {
+      "version": "2.0.9",
+      "buildNumber": 209,
+      "releaseDate": "2026-08-06",
+      "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.9/AlphaManagerSetup_v2.0.9.exe",
+      "fileSize": 101996522,
+      "sha256": "9e475cd8013012d45f2f32eb6c1fef8280dde842ab2a27215f951db91c798600",
+      "supportStatus": "active",
+      "category": "Maintenance Release",
+      "releaseNotesSummary": "حزمة تثبيت مستقلة بالكامل (Self-Contained Offline Setup) تعمل فوراً دون الحاجة لتنزيل .NET 8.",
+      "releaseNotes": {
+        "additions": [
+          "تضمين بيئة تشغيل .NET 8 Runtime داخل حزمة التثبيت للعمل أوفلاين لدى جميع العملاء."
+        ],
+        "improvements": [
+          "تحسين استقرار وأداء المنظومة وتعزيز أمان الحزم البرمجية والتوقيع الرقمي RSA."
+        ],
+        "fixes": [],
+        "security": []
+      }
+    },
     {
       "version": "2.0.8",
       "buildNumber": 208,
       "releaseDate": "2026-08-06",
       "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.8/AlphaManagerSetup_v2.0.8.exe",
-      "fileSize": 102002934,
-      "sha256": "cff319e2e34cf6225f834bf8cb71cf01c9f72cc4f73a750caa4a814b06e1dcbc",
-      "supportStatus": "active",
+      "fileSize": 102008183,
+      "sha256": "0758923d1dc96c1474ffa59122e0b98d43cec082de0bd4b5d0a33819807dad37",
+      "supportStatus": "superseded",
       "category": "Critical Hotfix",
       "releaseNotesSummary": "إصلاح حرج: خطأ SQLite Error 19 الذي كان يمنع إنشاء الدفعات بشكل كامل، وإصلاح توقف البرنامج بعد حذف قاعدة البيانات.",
       "releaseNotes": {

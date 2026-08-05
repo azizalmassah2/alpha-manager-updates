@@ -1,8 +1,21 @@
 {
   "schemaVersion": 1,
-  "lastUpdated": "2026-08-06T00:07:00Z",
+  "lastUpdated": "2026-08-06T00:53:00Z",
   "generatedBy": "Alpha Manager Build System",
   "data": [
+    {
+      "version": "2.0.9",
+      "buildNumber": 209,
+      "releaseDate": "2026-08-06",
+      "summary": "تحديث صيانة واستقرار شامل لمنظومة Alpha Manager الإصدار v2.0.9 مع تحسين الأداء والأمان.",
+      "changes": {
+        "additions": [],
+        "improvements": [
+          "تحسين استقرار وأداء المنظومة وتعزيز أمان الحزم البرمجية والتوقيع الرقمي RSA."
+        ],
+        "fixes": []
+      }
+    },
     {
       "version": "2.0.8",
       "buildNumber": 208,
