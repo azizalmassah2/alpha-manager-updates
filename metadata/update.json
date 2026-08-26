@@ -1,26 +1,27 @@
 {
   "schemaVersion": 1,
-  "lastUpdated": "2026-08-06T01:00:00Z",
+  "lastUpdated": "2026-08-26T00:00:00Z",
   "generatedBy": "Alpha Manager Build System",
-  "version": "2.0.8",
+  "version": "3.0.0",
   "updateType": "mandatory",
   "mandatory": true,
   "minimumSupportedVersion": "2.0.5",
-  "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v2.0.8/AlphaManagerSetup_v2.0.8.exe",
-  "sha256": "0758923d1dc96c1474ffa59122e0b98d43cec082de0bd4b5d0a33819807dad37",
-  "fileSize": 102008183,
-  "releaseDate": "2026-08-06",
+  "downloadUrl": "https://github.com/azizalmassah2/alpha-manager-updates/releases/download/v3.0.0/AlphaManagerSetup_v3.0.0.exe",
+  "sha256": "009a6518b84a6db8cd5360427acf72cb078b2a1f62b910de471fcfcdd124f253",
+  "fileSize": 68715115,
+  "releaseDate": "2026-08-26",
   "releaseNotes": [
-    "إصلاح حرج: حل مشكلة SQLite Error 1: table Batches has no column named TotalCount نهائياً وتوحيد مخطط قاعدة البيانات.",
-    "إصلاح حرج: حزمة تثبيت مستقلة بالكامل (Self-Contained Offline Setup) بدون الحاجة لتثبيت بيئة .NET.",
-    "تحسين: استقرار وأمان أعلى عند إعادة تهيئة قاعدة البيانات من الصفر بعد الحذف."
+    "إصلاح جوهري: إضافة كروت اليوزر مانجر مع تفعيل الباقة بشكل صحيح (لم تعد تُضاف بلا باقة).",
+    "إصلاح: سرعة الطباعة بوضع التوربو أصبحت حقيقية وأسرع بكثير من الوضع الآمن.",
+    "تحسين: مركز صيانة جديد بتبويبات منظّمة مع معاينة، نسخ احتياطي، وجدولة دورية.",
+    "تحسين: تحديث البيانات من الراوتر أصبح أسرع ولا يجمّد الواجهة، مع استيراد تلقائي عند الدخول."
   ],
-  "message": "تحديث إلزامي v2.0.8 — حزمة تثبيت مستقلة وإصلاح نهائي لجميع أخطاء مخطط قاعدة البيانات والدفعات.",
+  "message": "تحديث رئيسي v3.0.0 — إصلاحات جوهرية للكروت والتوربو، ومركز صيانة وجدولة جديد بالكامل.",
   "enabled": true,
   "extendedInfo": {
     "productName": "Alpha Manager",
     "officialName": "Alpha Manager for MikroTik Hotspot",
-    "buildNumber": 208,
+    "buildNumber": 300,
     "channel": "Stable",
     "publisherName": "Alpha Manager Team",
     "company": "LUXCARD",
@@ -40,19 +41,26 @@
       "English"
     ],
     "digitalSignatureStatus": "Self-Signed / Verified Checksum",
-    "buildTimestamp": "2026-08-06T01:00:00Z",
-    "category": "Critical Hotfix",
+    "buildTimestamp": "2026-08-26T00:00:00Z",
+    "category": "Major Release",
     "licenseType": "Commercial / Node-Locked to Router",
     "documentationUrl": "https://docs.alphamanager.app"
   },
   "structuredReleaseNotes": {
-    "additions": [],
+    "additions": [
+      "مركز صيانة وجدولة جديد بتبويبات: خيارات متعددة (حذف الكروت المنتهية وقتاً/رصيداً/كليهما، اليتيمة والمعطّلة، الجلسات، اللوج، إعادة بناء قاعدة الراوتر) مع معاينة العدد قبل الحذف ونسخ احتياطي وجدولة دورية وإدارة الجداول.",
+      "استيراد قاعدة بيانات الراوتر تلقائياً بالخلفية عند الدخول عند تفعيل الخيار."
+    ],
     "improvements": [
-      "تحسين استقرار قاعدة البيانات عند إعادة التهيئة من الصفر وإلغاء أي تعارض بين أسماء الأعمدة."
+      "مزامنة التوربو الحقيقية عبر سكربت مجمّع أسرع بكثير من الوضع الآمن.",
+      "تسريع زر تحديث البيانات وعدم تجميد الواجهة، وتخطّي المعالجة الثقيلة عند عدم تغيّر لقطة الراوتر.",
+      "اكتشاف نوع User Manager بفحص المسار الفعلي بدل الاعتماد على رقم إصدار الفيرموير."
     ],
     "fixes": [
-      "إصلاح حرج: خطأ SQLite Error 1 (table Batches has no column named TotalCount).",
-      "إصلاح حرج: نافذة طلب تثبيت .NET عند تشغيل البرنامج."
+      "إصلاح إضافة الكروت بلا باقة (استخدام numbers لتفعيل الباقة في v6).",
+      "إصلاح تساوي سرعة التوربو مع الوضع الآمن.",
+      "إصلاح عدم تحديد قالب الباقة تلقائياً في نافذة إضافة دفعة.",
+      "إصلاح فشل جدولة الصيانة الزائف على الراوتر."
     ],
     "security": [],
     "breakingChanges": [],
